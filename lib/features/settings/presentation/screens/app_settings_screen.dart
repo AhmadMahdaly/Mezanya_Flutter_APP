@@ -1,12 +1,12 @@
 import 'dart:convert';
-import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:http/http.dart' as http;
+import 'package:share_plus/share_plus.dart';
 
 import '../../../app_state/presentation/cubits/app_cubit.dart';
 
@@ -25,6 +25,8 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
   late bool _notificationsEnabled;
   final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: [drive.DriveApi.driveAppdataScope]);
   GoogleSignInAccount? _account;
+  String _backupDir = '';
+  String _autoBackupMode = 'off';
 
   @override
   void initState() {
@@ -33,6 +35,9 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
     _nameController = TextEditingController(text: s.userName);
     _currency = s.currencyCode;
     _notificationsEnabled = s.notificationsEnabled;
+    _backupDir = s.backupDirectoryPath;
+    _autoBackupMode = s.autoBackupMode;
+    _runAutoBackupIfNeeded(trigger: 'open');
   }
 
   @override
@@ -45,9 +50,11 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
   Widget build(BuildContext context) {
     final state = widget.cubit.state;
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
         const Text('إعدادات التطبيق', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         Card(
@@ -121,13 +128,49 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                 OutlinedButton.icon(
                   onPressed: _backupLocal,
                   icon: const Icon(Icons.download),
-                  label: const Text('تحميل نسخة احتياطية محليًا'),
+                  label: const Text('حفظ نسخة محلية الآن (اختيار المكان)'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _pickBackupDirectory,
+                  icon: const Icon(Icons.folder_open),
+                  label: _backupDir.isEmpty
+                      ? const Text('اختيار مكان حفظ النسخ المحلية')
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('مكان الحفظ'),
+                            Directionality(
+                              textDirection: TextDirection.ltr,
+                              child: Text(
+                                _backupDir,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: _autoBackupMode,
+                  decoration: const InputDecoration(labelText: 'النسخ الاحتياطي التلقائي'),
+                  items: const [
+                    DropdownMenuItem(value: 'off', child: Text('إيقاف')),
+                    DropdownMenuItem(value: 'daily', child: Text('يومي')),
+                    DropdownMenuItem(value: 'weekly', child: Text('أسبوعي')),
+                    DropdownMenuItem(value: 'on-close', child: Text('عند إغلاق التطبيق')),
+                  ],
+                  onChanged: (value) async {
+                    if (value == null) return;
+                    setState(() => _autoBackupMode = value);
+                    await widget.cubit.updateSettings(autoBackupMode: value);
+                  },
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: _restoreLocal,
                   icon: const Icon(Icons.upload_file),
-                  label: const Text('استرجاع من ملف محلي'),
+                  label: const Text('استرجاع يدوي من ملف JSON'),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
@@ -141,6 +184,10 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                   icon: const Icon(Icons.cloud_download_outlined),
                   label: const Text('استرجاع من Google Drive'),
                 ),
+                const SizedBox(height: 8),
+                const Text(
+                  'مهم: الاسترجاع المحلي يتم يدويًا باختيار ملف JSON من مدير الملفات (مناسب بعد إعادة تثبيت التطبيق).',
+                ),
               ],
             ),
           ),
@@ -148,8 +195,8 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
         const SizedBox(height: 12),
         Card(
           child: ListTile(
-            leading: const Icon(Icons.delete_forever, color: Colors.red),
-            title: const Text('حذف كل البيانات', style: TextStyle(color: Colors.red)),
+            leading: Icon(Icons.delete_forever, color: Theme.of(context).colorScheme.error),
+            title: Text('حذف كل البيانات', style: TextStyle(color: Theme.of(context).colorScheme.error)),
             subtitle: const Text('يتطلب تأكيد قبل الحذف'),
             onTap: _confirmDeleteAll,
           ),
@@ -162,7 +209,8 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
             trailing: const Text('v1.0.0'),
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -212,27 +260,50 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
 
   Future<void> _backupLocal() async {
     final data = widget.cubit.exportStateJson();
-    final bytes = Uint8List.fromList(utf8.encode(data));
-    await FileSaver.instance.saveFile(
-      name: 'korassa-backup-${DateTime.now().millisecondsSinceEpoch}',
-      bytes: bytes,
-      fileExtension: 'json',
-      mimeType: MimeType.json,
-    );
+    final filePath =
+        '${Directory.systemTemp.path}${Platform.pathSeparator}korassa-backup-${DateTime.now().millisecondsSinceEpoch}.json';
+    try {
+      final file = File(filePath);
+      await file.writeAsString(data);
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(filePath, mimeType: 'application/json')],
+          text: 'نسخة احتياطية من تطبيق Korassa',
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تعذر تجهيز أو مشاركة ملف النسخة الاحتياطية.'),
+        ),
+      );
+      return;
+    }
+    await widget.cubit.updateAutoBackupTimestamp(DateTime.now());
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حفظ النسخة محليًا.')));
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم حفظ النسخة في: $filePath')));
   }
 
   Future<void> _restoreLocal() async {
     final picked = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['json'],
-      withData: true,
+      withData: false,
     );
     final file = picked?.files.single;
-    if (file == null || file.bytes == null) return;
-    final json = utf8.decode(file.bytes!);
-    await widget.cubit.importStateJson(json);
+    if (file == null || file.path == null || file.path!.isEmpty) return;
+    try {
+      final json = await File(file.path!).readAsString();
+      await widget.cubit.importStateJson(json);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر قراءة ملف النسخة الاحتياطية المحدد.')),
+      );
+      return;
+    }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم الاسترجاع من النسخة المحلية.')));
   }
@@ -297,7 +368,7 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error, foregroundColor: Colors.white),
             child: const Text('حذف'),
           ),
         ],
@@ -307,6 +378,51 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
     await widget.cubit.resetAllData();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حذف كل البيانات.')));
+  }
+
+  Future<void> _pickBackupDirectory() async {
+    final dir = await FilePicker.platform.getDirectoryPath();
+    if (dir == null || dir.isEmpty) return;
+    setState(() => _backupDir = dir);
+    await widget.cubit.updateSettings(backupDirectoryPath: dir);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم تحديد مسار النسخ: $dir')));
+  }
+
+  Future<void> _runAutoBackupIfNeeded({required String trigger}) async {
+    final state = widget.cubit.state;
+    final mode = state.autoBackupMode;
+    if (mode == 'off') return;
+    if (mode == 'on-close' && trigger != 'close' && trigger != 'open') return;
+    if (state.backupDirectoryPath.isEmpty) return;
+
+    final last = state.lastAutoBackupAt.isEmpty ? null : DateTime.tryParse(state.lastAutoBackupAt);
+    final now = DateTime.now();
+    if (mode == 'daily' && last != null && now.difference(last).inHours < 24) return;
+    if (mode == 'weekly' && last != null && now.difference(last).inDays < 7) return;
+    if (mode == 'on-close' && trigger == 'open') return;
+
+    final filePath =
+        '${state.backupDirectoryPath}${Platform.pathSeparator}korassa-auto-${now.millisecondsSinceEpoch}.json';
+    try {
+      await File(filePath).writeAsString(widget.cubit.exportStateJson());
+    } catch (_) {
+      if (trigger != 'close' && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('فشل النسخ التلقائي: مسار النسخ غير قابل للكتابة.'),
+          ),
+        );
+      }
+      return;
+    }
+    await widget.cubit.updateAutoBackupTimestamp(now);
+  }
+
+  @override
+  void deactivate() {
+    _runAutoBackupIfNeeded(trigger: 'close');
+    super.deactivate();
   }
 }
 

@@ -3,12 +3,25 @@ import 'package:flutter/material.dart';
 import '../../../app_state/presentation/cubits/app_cubit.dart';
 import '../../../budget/domain/entities/budget_setup_entity.dart';
 import '../../../categories/domain/entities/category_entity.dart';
+import '../../domain/entities/recurring_transaction_entity.dart';
+import '../../domain/entities/transaction_entity.dart';
 import '../../../wallets/domain/entities/wallet_entity.dart';
 
 class AddTransactionScreen extends StatefulWidget {
-  const AddTransactionScreen({super.key, required this.cubit});
+  const AddTransactionScreen({
+    super.key,
+    required this.cubit,
+    this.initialTransaction,
+    this.recurringMode = false,
+    this.recurringType,
+    this.initialRecurring,
+  });
 
   final AppCubit cubit;
+  final TransactionEntity? initialTransaction;
+  final bool recurringMode;
+  final String? recurringType;
+  final RecurringTransactionEntity? initialRecurring;
 
   @override
   State<AddTransactionScreen> createState() => _AddTransactionScreenState();
@@ -99,13 +112,19 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
   String _type = 'expense';
   String _budgetScope = 'within-budget';
+  String _incomeBudgetScope = 'outside-budget';
   final _amountController = TextEditingController();
   final _notesController = TextEditingController();
+  final _recurringNameController = TextEditingController();
   final _newCategoryController = TextEditingController();
   DateTime _date = DateTime.now();
+  TimeOfDay _time = TimeOfDay.now();
   String _walletId = '';
-  String _allocationId = '';
+  String _budgetTargetId = '';
   String _incomeSourceId = 'wallet-only';
+  String _incomeJarId = '';
+  String _recurrencePattern = 'monthly';
+  int _recurrenceWeekday = DateTime.now().weekday;
 
   @override
   void initState() {
@@ -115,12 +134,65 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     _incomeSourceId = state.budgetSetup.incomeSources.isNotEmpty
         ? state.budgetSetup.incomeSources.first.id
         : 'wallet-only';
+    _incomeJarId = state.budgetSetup.linkedWallets.isNotEmpty
+        ? state.budgetSetup.linkedWallets.first.id
+        : '';
+    if (widget.recurringMode) {
+      _type = widget.recurringType ?? 'expense';
+      final r = widget.initialRecurring;
+      if (r != null) {
+        _type = r.type;
+        _walletId = r.walletId;
+        _amountController.text = r.amount.toStringAsFixed(2);
+        _notesController.text = r.notes ?? '';
+        _recurringNameController.text = r.name;
+        _recurrencePattern = r.recurrencePattern;
+        _recurrenceWeekday = r.weekday ?? _recurrenceWeekday;
+        _budgetScope = r.budgetScope;
+        _incomeBudgetScope = r.budgetScope;
+        _incomeSourceId = r.incomeSourceId ?? _incomeSourceId;
+        _incomeJarId = r.targetJarId ?? _incomeJarId;
+        if (r.allocationId != null) {
+          _budgetTargetId = 'alloc:${r.allocationId!}';
+        } else if (r.targetJarId != null) {
+          _budgetTargetId = 'jar:${r.targetJarId!}';
+        }
+        _date = DateTime(_date.year, _date.month, r.dayOfMonth);
+      }
+    }
+    final t = widget.initialTransaction;
+    if (t != null) {
+      _type = t.type;
+      _date = t.createdAt;
+      _time = TimeOfDay(hour: t.createdAt.hour, minute: t.createdAt.minute);
+      _walletId = t.walletId ?? _walletId;
+      _amountController.text = t.amount.toStringAsFixed(2);
+      _notesController.text = t.notes ?? '';
+      _incomeSourceId = t.incomeSourceId ?? _incomeSourceId;
+      if (t.type == 'expense') {
+        _budgetScope = t.budgetScope ?? 'outside-budget';
+        if (t.allocationId != null) {
+          _budgetTargetId = 'alloc:${t.allocationId!}';
+        } else if (t.toWalletId != null) {
+          _budgetTargetId = 'jar:${t.toWalletId!}';
+        } else {
+          _budgetTargetId = '';
+        }
+      }
+      if (t.type == 'income') {
+        _incomeBudgetScope = t.budgetScope == 'within-budget'
+            ? 'within-budget'
+            : 'outside-budget';
+        _incomeJarId = t.toWalletId ?? _incomeJarId;
+      }
+    }
   }
 
   @override
   void dispose() {
     _amountController.dispose();
     _notesController.dispose();
+    _recurringNameController.dispose();
     _newCategoryController.dispose();
     super.dispose();
   }
@@ -135,57 +207,74 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     final selectedWalletName =
         selectedWallet.isEmpty ? 'اختر المحفظة' : selectedWallet.first.name;
 
-    final selectedAllocation =
-        budget.allocations.where((a) => a.id == _allocationId).toList();
-    final selectedAllocationName = _allocationId == 'unallocated'
+    final selectedAllocation = budget.allocations
+        .where((a) => _budgetTargetId == 'alloc:${a.id}')
+        .toList();
+    final selectedJar = budget.linkedWallets
+        .where((j) => _budgetTargetId == 'jar:${j.id}')
+        .toList();
+    final selectedAllocationName = _budgetTargetId == 'unallocated'
         ? 'غير المخصص'
-        : selectedAllocation.isEmpty
+        : selectedJar.isNotEmpty
+            ? 'حصالة: ${selectedJar.first.name}'
+            : selectedAllocation.isEmpty
             ? 'اختر المخصص'
             : selectedAllocation.first.name;
+    final selectedIncomeJar = budget.linkedWallets
+        .where((j) => j.id == _incomeJarId)
+        .toList();
+    final selectedIncomeJarName = selectedIncomeJar.isEmpty
+        ? 'اختر الحصالة'
+        : selectedIncomeJar.first.name;
 
     final allocationCategories = selectedAllocation.isEmpty
         ? <CategoryEntity>[]
         : selectedAllocation.first.categories;
+    final jarCategories =
+        selectedJar.isEmpty ? <CategoryEntity>[] : selectedJar.first.categories;
     final generalExpenseCategories = state.categories
         .where((c) => c.scope == 'expense' && c.incomeSourceId == null)
         .toList();
     final visibleCategories = _budgetScope == 'within-budget'
-        ? allocationCategories
+        ? (selectedJar.isNotEmpty ? jarCategories : allocationCategories)
         : generalExpenseCategories;
 
     final allocationItems = [
       if (budget.unallocatedAmount > 0)
         const DropdownMenuItem(value: 'unallocated', child: Text('غير المخصص')),
       ...budget.allocations
-          .map((a) => DropdownMenuItem(value: a.id, child: Text(a.name))),
+          .map((a) => DropdownMenuItem(value: 'alloc:${a.id}', child: Text(a.name))),
+      ...budget.linkedWallets
+          .map((j) => DropdownMenuItem(value: 'jar:${j.id}', child: Text('حصالة: ${j.name}'))),
     ];
     final allocationIds = allocationItems.map((item) => item.value!).toSet();
 
     if (_type == 'expense' &&
         _budgetScope == 'within-budget' &&
-        _allocationId.isEmpty &&
+        _budgetTargetId.isEmpty &&
         allocationItems.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _allocationId.isNotEmpty) {
+        if (!mounted || _budgetTargetId.isNotEmpty) {
           return;
         }
-        setState(() => _allocationId = allocationItems.first.value!);
+        setState(() => _budgetTargetId = allocationItems.first.value!);
       });
     }
 
-    if (_allocationId.isNotEmpty && !allocationIds.contains(_allocationId)) {
+    if (_budgetTargetId.isNotEmpty && !allocationIds.contains(_budgetTargetId)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) {
           return;
         }
-        setState(() => _allocationId = '');
+        setState(() => _budgetTargetId = '');
       });
     }
 
+    final theme = Theme.of(context);
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
       ),
       child: SafeArea(
         top: false,
@@ -197,7 +286,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 width: 54,
                 height: 6,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFCBD5E1),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -209,7 +298,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   child: ChoiceChip(
                     label: const Text('مصروف'),
                     selected: _type == 'expense',
-                    onSelected: (_) => setState(() => _type = 'expense'),
+                    onSelected: widget.recurringMode
+                        ? null
+                        : (_) => setState(() => _type = 'expense'),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -217,14 +308,40 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   child: ChoiceChip(
                     label: const Text('دخل'),
                     selected: _type == 'income',
-                    onSelected: (_) => setState(() {
+                    onSelected: widget.recurringMode
+                        ? null
+                        : (_) => setState(() {
                       _type = 'income';
-                      _allocationId = '';
+                      _budgetTargetId = '';
                     }),
                   ),
                 ),
               ],
             ),
+            if (widget.recurringMode) ...[
+              const SizedBox(height: 10),
+              TextField(
+                controller: _recurringNameController,
+                decoration: const InputDecoration(labelText: 'اسم المعاملة المتكررة'),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: _recurrencePattern,
+                decoration: const InputDecoration(labelText: 'التكرار'),
+                items: const [
+                  DropdownMenuItem(value: 'weekly', child: Text('مرة كل أسبوع')),
+                  DropdownMenuItem(value: 'biweekly', child: Text('مرة كل أسبوعين')),
+                  DropdownMenuItem(value: 'monthly', child: Text('مرة كل شهر')),
+                  DropdownMenuItem(value: 'every_2_months', child: Text('مرة كل شهرين')),
+                  DropdownMenuItem(value: 'every_3_months', child: Text('مرة كل 3 شهور')),
+                  DropdownMenuItem(value: 'every_6_months', child: Text('مرة كل 6 شهور')),
+                  DropdownMenuItem(value: 'yearly', child: Text('مرة كل سنة')),
+                ],
+                onChanged: (v) {
+                  if (v != null) setState(() => _recurrencePattern = v);
+                },
+              ),
+            ],
             const SizedBox(height: 14),
             TextField(
               controller: _amountController,
@@ -236,8 +353,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             const SizedBox(height: 10),
             ListTile(
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: const BorderSide(color: Color(0xFFE2E8F0))),
+                  borderRadius: BorderRadius.circular(16)),
+              tileColor: theme.colorScheme.surface,
               title: const Text('المحفظة'),
               subtitle: Text(selectedWalletName),
               trailing: const Icon(Icons.chevron_left),
@@ -247,7 +364,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             ListTile(
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
-                  side: const BorderSide(color: Color(0xFFE2E8F0))),
+                  side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.1))),
               title: const Text('تاريخ المعاملة'),
               subtitle: Text('${_date.day}/${_date.month}/${_date.year}'),
               trailing: const Icon(Icons.calendar_month_outlined),
@@ -263,15 +380,56 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 }
               },
             ),
+            const SizedBox(height: 8),
+            ListTile(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.1))),
+              title: const Text('وقت المعاملة'),
+              subtitle: Text(
+                '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}',
+              ),
+              trailing: const Icon(Icons.access_time),
+              onTap: () async {
+                final picked = await showTimePicker(
+                  context: context,
+                  initialTime: _time,
+                );
+                if (picked != null) {
+                  setState(() => _time = picked);
+                }
+              },
+            ),
+            if (widget.recurringMode &&
+                (_recurrencePattern == 'weekly' ||
+                    _recurrencePattern == 'biweekly')) ...[
+              const SizedBox(height: 8),
+              DropdownButtonFormField<int>(
+                initialValue: _recurrenceWeekday,
+                decoration: const InputDecoration(labelText: 'يوم الأسبوع'),
+                items: const [
+                  DropdownMenuItem(value: 1, child: Text('الاثنين')),
+                  DropdownMenuItem(value: 2, child: Text('الثلاثاء')),
+                  DropdownMenuItem(value: 3, child: Text('الأربعاء')),
+                  DropdownMenuItem(value: 4, child: Text('الخميس')),
+                  DropdownMenuItem(value: 5, child: Text('الجمعة')),
+                  DropdownMenuItem(value: 6, child: Text('السبت')),
+                  DropdownMenuItem(value: 7, child: Text('الأحد')),
+                ],
+                onChanged: (v) {
+                  if (v != null) setState(() => _recurrenceWeekday = v);
+                },
+              ),
+            ],
             if (_type == 'expense') ...[
               const SizedBox(height: 12),
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: theme.colorScheme.surface,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
                 child: Row(
                   children: [
@@ -282,7 +440,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       onChanged: (v) {
                         setState(() {
                           _budgetScope = v ? 'within-budget' : 'outside-budget';
-                          if (!v) _allocationId = '';
+                          if (!v) _budgetTargetId = '';
                         });
                       },
                     ),
@@ -294,8 +452,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               const SizedBox(height: 10),
               ListTile(
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: const BorderSide(color: Color(0xFFE2E8F0))),
+                    borderRadius: BorderRadius.circular(16)),
+                tileColor: theme.colorScheme.surface,
                 title: const Text('المخصص'),
                 subtitle: Text(selectedAllocationName),
                 trailing: const Icon(Icons.chevron_left),
@@ -305,11 +463,16 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               _categoriesBlock(
                 title: 'الفئات',
                 categories: visibleCategories,
-                onAdd: _allocationId.isEmpty && _budgetScope == 'within-budget'
+                onAdd: _budgetTargetId.isEmpty && _budgetScope == 'within-budget'
                     ? null
                     : () => _openAddCategoryDialog(
                           budgetScope: _budgetScope,
-                          allocationId: _allocationId,
+                          allocationId: _budgetTargetId.startsWith('alloc:')
+                              ? _budgetTargetId.replaceFirst('alloc:', '')
+                              : '',
+                          linkedWalletId: _budgetTargetId.startsWith('jar:')
+                              ? _budgetTargetId.replaceFirst('jar:', '')
+                              : '',
                           existing: visibleCategories,
                         ),
               ),
@@ -321,7 +484,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 categories: visibleCategories,
                 onAdd: () => _openAddCategoryDialog(
                   budgetScope: _budgetScope,
-                  allocationId: _allocationId,
+                  allocationId: '',
+                  linkedWalletId: '',
                   existing: visibleCategories,
                 ),
               ),
@@ -340,6 +504,42 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 onChanged: (v) =>
                     setState(() => _incomeSourceId = v ?? 'wallet-only'),
               ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    const Text('داخل الميزانية'),
+                    const Spacer(),
+                    Switch(
+                      value: _incomeBudgetScope == 'within-budget',
+                      onChanged: (v) {
+                        setState(
+                          () => _incomeBudgetScope =
+                              v ? 'within-budget' : 'outside-budget',
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              if (_incomeBudgetScope == 'within-budget') ...[
+                const SizedBox(height: 8),
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  tileColor: theme.colorScheme.surface,
+                  title: const Text('الحصالة'),
+                  subtitle: Text(selectedIncomeJarName),
+                  trailing: const Icon(Icons.chevron_left),
+                  onTap: () => _openIncomeJarPicker(budget),
+                ),
+              ],
             ],
             const SizedBox(height: 10),
             TextField(
@@ -348,6 +548,32 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               decoration: const InputDecoration(labelText: 'الملاحظات'),
             ),
             const SizedBox(height: 12),
+            if (widget.recurringMode && widget.initialRecurring != null)
+              TextButton(
+                onPressed: () async {
+                  await widget.cubit.deleteRecurringTransaction(
+                    widget.initialRecurring!.id,
+                  );
+                  if (!context.mounted) return;
+                  Navigator.of(context).pop();
+                },
+                child: Text(
+                  'حذف المعاملة المتكررة',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            if (!widget.recurringMode && widget.initialTransaction != null)
+              TextButton(
+                onPressed: () async {
+                  await widget.cubit.deleteTransaction(widget.initialTransaction!.id);
+                  if (!context.mounted) return;
+                  Navigator.of(context).pop();
+                },
+                child: Text(
+                  'حذف المعاملة',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
             FilledButton(
               onPressed: () async {
                 if (amount <= 0) {
@@ -360,27 +586,114 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 }
                 if (_type == 'expense' &&
                     _budgetScope == 'within-budget' &&
-                    _allocationId.isEmpty) {
+                    _budgetTargetId.isEmpty) {
                   _showValidationError('اختَر مخصص للمعاملة داخل الميزانية.');
                   return;
                 }
-                if (_allocationId == 'unallocated' &&
+                if (_budgetTargetId == 'unallocated' &&
                     amount > budget.unallocatedAmount) {
                   _showValidationError('المبلغ أكبر من المتاح في غير المخصص.');
                   return;
                 }
+                if (_type == 'income' &&
+                    _incomeBudgetScope == 'within-budget' &&
+                    _incomeJarId.isEmpty) {
+                  _showValidationError('اختَر حصالة للدخل داخل الميزانية.');
+                  return;
+                }
+                if (widget.recurringMode &&
+                    _recurringNameController.text.trim().isEmpty) {
+                  _showValidationError('اكتب اسم المعاملة المتكررة.');
+                  return;
+                }
 
-                await widget.cubit.addTransaction(
+                final selectedJarId = _budgetTargetId.startsWith('jar:')
+                    ? _budgetTargetId.replaceFirst('jar:', '')
+                    : null;
+
+                if (widget.recurringMode) {
+                  final recurring = widget.initialRecurring;
+                  final recurringEntity = RecurringTransactionEntity(
+                    id: recurring?.id ?? 'rec-${DateTime.now().microsecondsSinceEpoch}',
+                    name: _recurringNameController.text.trim(),
+                    type: _type,
+                    amount: amount,
+                    dayOfMonth: _date.day.clamp(1, 28),
+                    executionType: 'confirm',
+                    walletId: _walletId,
+                    budgetScope: _type == 'expense' ? _budgetScope : _incomeBudgetScope,
+                    recurrencePattern: _recurrencePattern,
+                    weekday: (_recurrencePattern == 'weekly' || _recurrencePattern == 'biweekly')
+                        ? _recurrenceWeekday
+                        : null,
+                    allocationId: _type == 'expense' &&
+                            _budgetScope == 'within-budget' &&
+                            _budgetTargetId.startsWith('alloc:')
+                        ? _budgetTargetId.replaceFirst('alloc:', '')
+                        : null,
+                    targetJarId: _type == 'income' && _incomeBudgetScope == 'within-budget'
+                        ? _incomeJarId
+                        : (_type == 'expense' && _budgetTargetId.startsWith('jar:')
+                            ? selectedJarId
+                            : null),
+                    incomeSourceId: _type == 'income' && _incomeSourceId != 'wallet-only'
+                        ? _incomeSourceId
+                        : null,
+                    notes: _notesController.text.trim().isEmpty
+                        ? null
+                        : _notesController.text.trim(),
+                    isActive: recurring?.isActive ?? true,
+                  );
+                  if (recurring == null) {
+                    await widget.cubit.addRecurringTransaction(
+                      name: recurringEntity.name,
+                      type: recurringEntity.type,
+                      amount: recurringEntity.amount,
+                      dayOfMonth: recurringEntity.dayOfMonth,
+                      executionType: recurringEntity.executionType,
+                      walletId: recurringEntity.walletId,
+                      budgetScope: recurringEntity.budgetScope,
+                      recurrencePattern: recurringEntity.recurrencePattern,
+                      weekday: recurringEntity.weekday,
+                      allocationId: recurringEntity.allocationId,
+                      targetJarId: recurringEntity.targetJarId,
+                      incomeSourceId: recurringEntity.incomeSourceId,
+                      notes: recurringEntity.notes,
+                    );
+                  } else {
+                    await widget.cubit.updateRecurringTransaction(recurringEntity);
+                  }
+                } else {
+                  if (widget.initialTransaction != null) {
+                    await widget.cubit.deleteTransaction(
+                      widget.initialTransaction!.id,
+                    );
+                  }
+                  await widget.cubit.addTransaction(
                   walletId: _walletId,
+                  toWalletId: _type == 'income' &&
+                          _incomeBudgetScope == 'within-budget'
+                      ? _incomeJarId
+                      : selectedJarId,
                   amount: amount,
                   type: _type,
-                  createdAt: DateTime(_date.year, _date.month, _date.day, 12),
+                  createdAt: DateTime(
+                    _date.year,
+                    _date.month,
+                    _date.day,
+                    _time.hour,
+                    _time.minute,
+                  ),
                   allocationId: _type == 'expense' &&
                           _budgetScope == 'within-budget' &&
-                          _allocationId != 'unallocated'
-                      ? _allocationId
+                          _budgetTargetId.startsWith('alloc:')
+                      ? _budgetTargetId.replaceFirst('alloc:', '')
                       : null,
-                  budgetScope: _type == 'expense' ? _budgetScope : null,
+                  budgetScope: _type == 'expense'
+                      ? _budgetScope
+                      : _type == 'income'
+                          ? _incomeBudgetScope
+                          : null,
                   incomeSourceId:
                       _type == 'income' && _incomeSourceId != 'wallet-only'
                           ? _incomeSourceId
@@ -389,18 +702,27 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       ? null
                       : _notesController.text.trim(),
                 );
-
+                }
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                      content: Text(_type == 'income'
-                          ? 'تم تسجيل الدخل.'
-                          : 'تم تسجيل المعاملة.')),
+                      content: Text(widget.recurringMode
+                          ? 'تم حفظ المعاملة المتكررة.'
+                          : (_type == 'income'
+                              ? 'تم تسجيل الدخل.'
+                              : 'تم تسجيل المعاملة.'))),
                 );
-                _amountController.clear();
-                _notesController.clear();
+                Navigator.of(context).pop();
               },
-              child: Text(_type == 'income' ? 'تسجيل الدخل' : 'تسجيل المعاملة'),
+              child: Text(
+                widget.recurringMode
+                    ? (widget.initialRecurring == null
+                        ? 'حفظ المعاملة المتكررة'
+                        : 'حفظ تعديل التكرار')
+                    : widget.initialTransaction != null
+                    ? 'حفظ التعديل'
+                    : (_type == 'income' ? 'تسجيل الدخل' : 'تسجيل المعاملة'),
+              ),
             ),
           ],
         ),
@@ -425,7 +747,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     subtitle:
                         Text('الرصيد: ${wallet.balance.toStringAsFixed(2)}'),
                     trailing: _walletId == wallet.id
-                        ? const Icon(Icons.check_circle, color: Colors.green)
+                        ? Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary)
                         : null,
                     onTap: () {
                       setState(() => _walletId = wallet.id);
@@ -469,17 +791,44 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                           value: ratio.toDouble(), minHeight: 8),
                     ],
                   ),
-                  trailing: _allocationId == id
-                      ? const Icon(Icons.check_circle, color: Colors.green)
+                  trailing: _budgetTargetId == id
+                      ? Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary)
                       : null,
                   onTap: () {
-                    setState(() => _allocationId = id);
+                    setState(() => _budgetTargetId = id);
                     Navigator.pop(context);
                   },
                 ),
               );
             }
-            final allocation = budget.allocations.firstWhere((a) => a.id == id);
+            if (id.startsWith('jar:')) {
+              final jar = budget.linkedWallets
+                  .firstWhere((j) => 'jar:${j.id}' == id);
+              final ratio = (jar.balance / (budget.totalIncome <= 0 ? 1 : budget.totalIncome))
+                  .clamp(0.0, 1.0);
+              return Card(
+                margin: const EdgeInsets.only(bottom: 10),
+                child: ListTile(
+                  title: Text('حصالة: ${jar.name}'),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('الرصيد: ${jar.balance.toStringAsFixed(2)}'),
+                      const SizedBox(height: 6),
+                      LinearProgressIndicator(value: ratio.toDouble(), minHeight: 8),
+                    ],
+                  ),
+                  trailing: _budgetTargetId == id
+                      ? Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary)
+                      : null,
+                  onTap: () {
+                    setState(() => _budgetTargetId = id);
+                    Navigator.pop(context);
+                  },
+                ),
+              );
+            }
+            final allocation = budget.allocations.firstWhere((a) => 'alloc:${a.id}' == id);
             final planned = allocation.funding
                 .fold<double>(0, (s, f) => s + f.plannedAmount);
             final ratio =
@@ -499,16 +848,51 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         value: ratio.toDouble(), minHeight: 8),
                   ],
                 ),
-                trailing: _allocationId == id
-                    ? const Icon(Icons.check_circle, color: Colors.green)
+                trailing: _budgetTargetId == id
+                    ? Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary)
                     : null,
                 onTap: () {
-                  setState(() => _allocationId = id);
+                  setState(() => _budgetTargetId = id);
                   Navigator.pop(context);
                 },
               ),
             );
           }).toList(),
+        ),
+      ),
+    );
+  }
+
+  void _openIncomeJarPicker(BudgetSetupEntity budget) {
+    final jars = budget.linkedWallets;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => SizedBox(
+        height: MediaQuery.of(context).size.height * 0.72,
+        child: ListView(
+          padding: const EdgeInsets.all(14),
+          children: jars
+              .map(
+                (jar) => Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    title: Text(jar.name),
+                    subtitle: Text('الرصيد: ${jar.balance.toStringAsFixed(2)}'),
+                    trailing: _incomeJarId == jar.id
+                        ? Icon(
+                            Icons.check_circle,
+                            color: Theme.of(context).colorScheme.primary,
+                          )
+                        : null,
+                    onTap: () {
+                      setState(() => _incomeJarId = jar.id);
+                      Navigator.pop(context);
+                    },
+                  ),
+                ),
+              )
+              .toList(),
         ),
       ),
     );
@@ -541,7 +925,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              color: Theme.of(context).colorScheme.surface,
             ),
             child: const Text('لا توجد فئات حتى الآن لهذا الجزء.'),
           )
@@ -592,6 +976,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   Future<void> _openAddCategoryDialog({
     required String budgetScope,
     required String allocationId,
+    required String linkedWalletId,
     required List<CategoryEntity> existing,
   }) async {
     _newCategoryController.clear();
@@ -662,8 +1047,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                           child: Container(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: active ? Colors.black87 : const Color(0xFFE5E7EB)),
-                              color: active ? const Color(0xFFF3F4F6) : Colors.white,
+                              color: active ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1) : Theme.of(context).colorScheme.surface,
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -672,7 +1056,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                                   width: 28,
                                   height: 28,
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF0F172A),
+                                    color: active ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Icon(item.$4, color: Colors.white, size: 16),
@@ -700,7 +1084,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       ),
                       itemBuilder: (context, index) {
                         final item = _colors[index];
-                        final active = selectedColor == item;
                         return InkWell(
                           onTap: () => setDialog(() => selectedColor = item),
                           borderRadius: BorderRadius.circular(12),
@@ -708,10 +1091,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             decoration: BoxDecoration(
                               color: _parseColor(item),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                width: active ? 2 : 1,
-                                color: active ? Colors.black87 : Colors.white,
-                              ),
                             ),
                           ),
                         );
@@ -721,7 +1100,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF5F5F5),
+                        color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
@@ -781,6 +1160,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         allocationId != 'unallocated') {
       await widget.cubit.updateAllocationCategories(
         allocationId: allocationId,
+        categories: [...existing, category],
+      );
+    } else if (budgetScope == 'within-budget' && linkedWalletId.isNotEmpty) {
+      await widget.cubit.updateLinkedWalletCategories(
+        linkedWalletId: linkedWalletId,
         categories: [...existing, category],
       );
     } else {

@@ -20,6 +20,7 @@ dependencies:
   http: ^1.2.2
   intl: ^0.20.2
   shared_preferences: ^2.5.3
+  share_plus: ^12.0.2
 
 dev_dependencies:
   flutter_test:
@@ -28,3 +29,10 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  fonts:
+    - family: IBM Plex Sans Arabic
+      fonts:
+        - asset: assets/fonts/IBMPlexSansArabic-Regular.ttf
+        - asset: assets/fonts/IBMPlexSansArabic-Medium.ttf
+        - asset: assets/fonts/IBMPlexSansArabic-Bold.ttf

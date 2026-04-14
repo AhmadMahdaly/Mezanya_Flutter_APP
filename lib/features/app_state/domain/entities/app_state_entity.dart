@@ -3,6 +3,9 @@ import '../../../wallets/domain/entities/wallet_entity.dart';
 import '../../../budget/domain/entities/budget_setup_entity.dart';
 import '../../../categories/domain/entities/category_entity.dart';
 import '../../../logs/domain/entities/log_entry_entity.dart';
+import '../../../transactions/domain/entities/recurring_transaction_entity.dart';
+import '../../../goals/domain/entities/goal_entity.dart';
+import '../../../notifications/domain/entities/notification_entity.dart';
 
 class AppStateEntity {
   const AppStateEntity({
@@ -15,6 +18,13 @@ class AppStateEntity {
     required this.notificationsEnabled,
     required this.googleEmail,
     required this.logs,
+    required this.recurringTransactions,
+    required this.goals,
+    required this.notifications,
+    required this.backupDirectoryPath,
+    required this.autoBackupMode,
+    required this.lastAutoBackupAt,
+    required this.monthlyBudgetSnapshots,
   });
 
   final List<WalletEntity> wallets;
@@ -26,6 +36,13 @@ class AppStateEntity {
   final bool notificationsEnabled;
   final String googleEmail;
   final List<LogEntryEntity> logs;
+  final List<RecurringTransactionEntity> recurringTransactions;
+  final List<GoalEntity> goals;
+  final List<NotificationEntity> notifications;
+  final String backupDirectoryPath;
+  final String autoBackupMode;
+  final String lastAutoBackupAt;
+  final Map<String, Map<String, dynamic>> monthlyBudgetSnapshots;
 
   factory AppStateEntity.initial() {
     return AppStateEntity(
@@ -41,6 +58,13 @@ class AppStateEntity {
       notificationsEnabled: true,
       googleEmail: '',
       logs: const <LogEntryEntity>[],
+      recurringTransactions: const <RecurringTransactionEntity>[],
+      goals: const <GoalEntity>[],
+      notifications: const <NotificationEntity>[],
+      backupDirectoryPath: '',
+      autoBackupMode: 'off',
+      lastAutoBackupAt: '',
+      monthlyBudgetSnapshots: const <String, Map<String, dynamic>>{},
     );
   }
 
@@ -54,6 +78,13 @@ class AppStateEntity {
     bool? notificationsEnabled,
     String? googleEmail,
     List<LogEntryEntity>? logs,
+    List<RecurringTransactionEntity>? recurringTransactions,
+    List<GoalEntity>? goals,
+    List<NotificationEntity>? notifications,
+    String? backupDirectoryPath,
+    String? autoBackupMode,
+    String? lastAutoBackupAt,
+    Map<String, Map<String, dynamic>>? monthlyBudgetSnapshots,
   }) {
     return AppStateEntity(
       wallets: wallets ?? this.wallets,
@@ -65,6 +96,13 @@ class AppStateEntity {
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       googleEmail: googleEmail ?? this.googleEmail,
       logs: logs ?? this.logs,
+      recurringTransactions: recurringTransactions ?? this.recurringTransactions,
+      goals: goals ?? this.goals,
+      notifications: notifications ?? this.notifications,
+      backupDirectoryPath: backupDirectoryPath ?? this.backupDirectoryPath,
+      autoBackupMode: autoBackupMode ?? this.autoBackupMode,
+      lastAutoBackupAt: lastAutoBackupAt ?? this.lastAutoBackupAt,
+      monthlyBudgetSnapshots: monthlyBudgetSnapshots ?? this.monthlyBudgetSnapshots,
     );
   }
 
@@ -79,6 +117,13 @@ class AppStateEntity {
       'notificationsEnabled': notificationsEnabled,
       'googleEmail': googleEmail,
       'logs': logs.map((item) => item.toMap()).toList(),
+      'recurringTransactions': recurringTransactions.map((item) => item.toMap()).toList(),
+      'goals': goals.map((item) => item.toMap()).toList(),
+      'notifications': notifications.map((item) => item.toMap()).toList(),
+      'backupDirectoryPath': backupDirectoryPath,
+      'autoBackupMode': autoBackupMode,
+      'lastAutoBackupAt': lastAutoBackupAt,
+      'monthlyBudgetSnapshots': monthlyBudgetSnapshots,
     };
   }
 
@@ -87,6 +132,10 @@ class AppStateEntity {
     final transactionsRaw = map['transactions'] as List<dynamic>? ?? <dynamic>[];
     final categoriesRaw = map['categories'] as List<dynamic>? ?? <dynamic>[];
     final logsRaw = map['logs'] as List<dynamic>? ?? <dynamic>[];
+    final recurringRaw = map['recurringTransactions'] as List<dynamic>? ?? <dynamic>[];
+    final goalsRaw = map['goals'] as List<dynamic>? ?? <dynamic>[];
+    final notificationsRaw = map['notifications'] as List<dynamic>? ?? <dynamic>[];
+    final snapshotsRaw = map['monthlyBudgetSnapshots'] as Map<String, dynamic>? ?? <String, dynamic>{};
 
     return AppStateEntity(
       wallets: walletsRaw
@@ -110,6 +159,24 @@ class AppStateEntity {
       notificationsEnabled: map['notificationsEnabled'] as bool? ?? true,
       googleEmail: map['googleEmail'] as String? ?? '',
       logs: logsRaw.whereType<Map<String, dynamic>>().map(LogEntryEntity.fromMap).toList(),
+      recurringTransactions: recurringRaw
+          .whereType<Map<String, dynamic>>()
+          .map(RecurringTransactionEntity.fromMap)
+          .toList(),
+      goals: goalsRaw.whereType<Map<String, dynamic>>().map(GoalEntity.fromMap).toList(),
+      notifications: notificationsRaw
+          .whereType<Map<String, dynamic>>()
+          .map(NotificationEntity.fromMap)
+          .toList(),
+      backupDirectoryPath: map['backupDirectoryPath'] as String? ?? '',
+      autoBackupMode: map['autoBackupMode'] as String? ?? 'off',
+      lastAutoBackupAt: map['lastAutoBackupAt'] as String? ?? '',
+      monthlyBudgetSnapshots: snapshotsRaw.map(
+        (key, value) => MapEntry(
+          key,
+          value is Map<String, dynamic> ? value : <String, dynamic>{},
+        ),
+      ),
     );
   }
 }

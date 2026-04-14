@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
 
 import 'core/theme/app_theme.dart';
-import 'features/app_state/presentation/cubits/app_cubit.dart';
 import 'features/app_state/domain/entities/app_state_entity.dart';
+import 'features/app_state/presentation/cubits/app_cubit.dart';
 import 'features/budget/presentation/screens/budget_setup_screen.dart';
 import 'features/budget/presentation/screens/budget_tracking_screen.dart';
-import 'features/home/presentation/screens/money_screen.dart';
-import 'features/wallets/presentation/screens/wallets_screen.dart';
-import 'features/transactions/presentation/screens/add_transaction_screen.dart';
 import 'features/categories/presentation/screens/categories_screen.dart';
-import 'features/settings/presentation/screens/app_settings_screen.dart';
+import 'features/goals/presentation/screens/goals_screen.dart';
+import 'features/home/presentation/screens/money_screen.dart';
 import 'features/logs/presentation/screens/logs_screen.dart';
+import 'features/notifications/presentation/screens/notifications_screen.dart';
+import 'features/settings/presentation/screens/app_settings_screen.dart';
+import 'features/transactions/presentation/screens/add_transaction_screen.dart';
+import 'features/transactions/presentation/screens/recurring_transactions_screen.dart';
+import 'features/wallets/presentation/screens/wallets_screen.dart';
 
 class KorassaApp extends StatelessWidget {
   const KorassaApp({
@@ -29,13 +32,15 @@ class KorassaApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Korassa',
       locale: const Locale('ar'),
-      supportedLocales: const [Locale('ar'), Locale('en')],
+      supportedLocales: const [
+        Locale('ar'),
+      ],
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: AppTheme.light(),
+      theme: AppTheme.tactileManuscript(),
       home: StreamBuilder<AppStateEntity>(
         stream: cubit.stream,
         initialData: cubit.state,
@@ -135,8 +140,13 @@ class _MainLayoutState extends State<MainLayout> {
                   tooltip: 'الإشعارات',
                   icon: const Icon(Icons.notifications_none_rounded),
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('صفحة الإشعارات جاهزة للربط.')),
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => Scaffold(
+                          appBar: AppBar(title: const Text('الإشعارات')),
+                          body: NotificationsScreen(cubit: widget.cubit),
+                        ),
+                      ),
                     );
                   },
                 ),
@@ -154,19 +164,22 @@ class _MainLayoutState extends State<MainLayout> {
           padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
+              color: const Color(0xFFF5F4EF), // surface-container-low
               borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant),
               boxShadow: const [
                 BoxShadow(
-                  blurRadius: 20,
-                  offset: Offset(0, 8),
-                  color: Color(0x1F000000),
+                  blurRadius: 40,
+                  offset: Offset(0, 12),
+                  color: Color(0x0F31332F), // Ambient shadow
                 ),
               ],
             ),
             child: NavigationBar(
               selectedIndex: _currentIndex,
-              onDestinationSelected: (index) => setState(() => _currentIndex = index),
+              onDestinationSelected: (index) =>
+                  setState(() => _currentIndex = index),
               destinations: _tabs
                   .map(
                     (tab) => NavigationDestination(
@@ -206,6 +219,11 @@ class _MoreTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final state = cubit.state;
+    final userName =
+        state.userName.trim().isEmpty ? 'مستخدم كراسة' : state.userName.trim();
+    final userInitial = userName.isNotEmpty ? userName.characters.first : 'ك';
+
     const items = <MapEntry<String, String>>[
       MapEntry('إعداد الميزانية', 'budget-setup'),
       MapEntry('العمليات المتكررة', 'recurring-transactions'),
@@ -224,65 +242,166 @@ class _MoreTab extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  child: Text(
+                    userInitial,
+                    style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        userName,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        state.googleEmail.isEmpty
+                            ? 'غير متصل بحساب Google'
+                            : state.googleEmail,
+                        style: Theme.of(context).textTheme.bodySmall,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                // IconButton(
+                //   tooltip: 'تعديل بيانات الحساب',
+                //   icon: const Icon(Icons.edit_outlined),
+                //   onPressed: () {
+                //     Navigator.of(context).push(
+                //       MaterialPageRoute(
+                //         builder: (_) => Scaffold(
+                //           appBar: AppBar(title: const Text('إعدادات التطبيق')),
+                //           body: AppSettingsScreen(cubit: cubit),
+                //         ),
+                //       ),
+                //     );
+                //   },
+                // ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
         ...items.map(
-          (item) => Card(
-            child: ListTile(
-              title: Text(item.key),
-              subtitle: Text(item.value),
-              trailing: const Icon(Icons.chevron_left_rounded),
-              onTap: () {
-                if (item.value == 'budget-setup') {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => Scaffold(
-                        appBar: AppBar(title: const Text('إعداد الميزانية الشهرية')),
-                        body: BudgetSetupScreen(cubit: cubit),
+          (item) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Card(
+              child: ListTile(
+                title: Text(item.key),
+                subtitle: Text(item.value),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () {
+                  if (item.value == 'budget-setup') {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => Scaffold(
+                          appBar: AppBar(
+                              title: const Text('إعداد الميزانية الشهرية')),
+                          body: BudgetSetupScreen(cubit: cubit),
+                        ),
                       ),
-                    ),
-                  );
-                  return;
-                }
-                if (item.value == 'categories') {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => Scaffold(
-                        appBar: AppBar(title: const Text('إعداد الفئات')),
-                        body: CategoriesScreen(cubit: cubit),
+                    );
+                    return;
+                  }
+                  if (item.value == 'categories') {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => Scaffold(
+                          appBar: AppBar(title: const Text('إعداد الفئات')),
+                          body: CategoriesScreen(cubit: cubit),
+                        ),
                       ),
-                    ),
-                  );
-                  return;
-                }
-                if (item.value == 'app-settings') {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => Scaffold(
-                        appBar: AppBar(title: const Text('إعدادات التطبيق')),
-                        body: AppSettingsScreen(cubit: cubit),
+                    );
+                    return;
+                  }
+                  if (item.value == 'recurring-transactions') {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => Scaffold(
+                          appBar:
+                              AppBar(title: const Text('المعاملات المتكررة')),
+                          body: RecurringTransactionsScreen(cubit: cubit),
+                        ),
                       ),
-                    ),
-                  );
-                  return;
-                }
-                if (item.value == 'logs') {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => LogsScreen(cubit: cubit),
-                    ),
-                  );
-                  return;
-                }
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(SnackBar(content: Text('صفحة ${item.key} جاهزة للربط.')));
-              },
+                    );
+                    return;
+                  }
+                  if (item.value == 'app-settings') {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => Scaffold(
+                          appBar: AppBar(title: const Text('إعدادات التطبيق')),
+                          body: AppSettingsScreen(cubit: cubit),
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+                  if (item.value == 'goals') {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => Scaffold(
+                          appBar: AppBar(title: const Text('الأهداف')),
+                          body: GoalsScreen(cubit: cubit),
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+                  if (item.value == 'logs') {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => LogsScreen(cubit: cubit),
+                      ),
+                    );
+                    return;
+                  }
+                  if (item.value == 'notifications') {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => Scaffold(
+                          appBar: AppBar(title: const Text('الإشعارات')),
+                          body: NotificationsScreen(cubit: cubit),
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('صفحة ${item.key} جاهزة للربط.')));
+                },
+              ),
             ),
           ),
         ),
         const SizedBox(height: 8),
         OutlinedButton.icon(
-          onPressed: () => onOpenSection(2),
-          icon: const Icon(Icons.add),
-          label: const Text('إضافة عملية بسرعة'),
+          onPressed: () async {
+            await cubit.updateSettings(googleEmail: '');
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('تم تسجيل الخروج من الحساب.')),
+            );
+          },
+          icon: const Icon(Icons.logout_rounded),
+          label: const Text('تسجيل الخروج'),
         ),
       ],
     );

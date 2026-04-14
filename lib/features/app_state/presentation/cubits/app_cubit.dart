@@ -4,7 +4,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../budget/domain/entities/budget_setup_entity.dart';
 import '../../../categories/domain/entities/category_entity.dart';
+import '../../../goals/domain/entities/goal_entity.dart';
 import '../../../logs/domain/entities/log_entry_entity.dart';
+import '../../../notifications/domain/entities/notification_entity.dart';
+import '../../../transactions/domain/entities/recurring_transaction_entity.dart';
 import '../../../transactions/domain/entities/transaction_entity.dart';
 import '../../../wallets/domain/entities/wallet_entity.dart';
 import '../../domain/entities/app_state_entity.dart';
@@ -17,9 +20,34 @@ class AppCubit extends Cubit<AppStateEntity> {
 
   Future<void> initialize() async {
     emit(await _repository.loadState());
+    await ensureDefaultSavingsJar();
+    await syncSavingsJarWithReserved();
+    final key = _monthKey();
+    if (!state.monthlyBudgetSnapshots.containsKey(key)) {
+      final next = _withMonthlySnapshot(state, state.budgetSetup);
+      await _repository.saveState(next);
+      emit(next);
+    }
   }
 
   String _id(String prefix) => '$prefix-${DateTime.now().microsecondsSinceEpoch}';
+  String _monthKey([DateTime? at]) {
+    final date = at ?? DateTime.now();
+    final mm = date.month.toString().padLeft(2, '0');
+    return '${date.year}-$mm';
+  }
+
+  AppStateEntity _withMonthlySnapshot(
+    AppStateEntity source,
+    BudgetSetupEntity setup, [
+    DateTime? month,
+  ]) {
+    final snapshots = Map<String, Map<String, dynamic>>.from(
+      source.monthlyBudgetSnapshots,
+    );
+    snapshots[_monthKey(month)] = setup.toMap();
+    return source.copyWith(monthlyBudgetSnapshots: snapshots);
+  }
 
   Map<String, dynamic> _coreMap(AppStateEntity appState) {
     final map = appState.toMap();
@@ -42,6 +70,7 @@ class AppCubit extends Cubit<AppStateEntity> {
     final before = jsonEncode(_coreMap(state));
     final nextRaw = await apply();
     final after = jsonEncode(_coreMap(nextRaw));
+    final title = _notificationTitle(action, entityType);
     final log = LogEntryEntity(
       id: _id('log'),
       action: action,
@@ -53,9 +82,39 @@ class AppCubit extends Cubit<AppStateEntity> {
       afterState: after,
       isReverted: false,
     );
-    final next = nextRaw.copyWith(logs: [log, ...nextRaw.logs].take(600).toList());
+    final notification = NotificationEntity(
+      id: _id('notif'),
+      title: title,
+      message: details,
+      createdAt: DateTime.now(),
+      type: entityType,
+      relatedLogId: log.id,
+    );
+    final next = nextRaw.copyWith(
+      logs: [log, ...nextRaw.logs].take(600).toList(),
+      notifications: [notification, ...nextRaw.notifications].take(800).toList(),
+    );
     await _repository.saveState(next);
     emit(next);
+  }
+
+  String _notificationTitle(String action, String entityType) {
+    if (entityType == 'income' || entityType == 'transaction') {
+      return 'إشعار معاملة';
+    }
+    if (entityType == 'budget') {
+      return 'إشعار الميزانية';
+    }
+    if (entityType == 'recurring-transaction') {
+      return 'إشعار معاملة متكررة';
+    }
+    if (entityType == 'goal') {
+      return 'إشعار هدف';
+    }
+    if (action == 'delete') {
+      return 'إشعار حذف';
+    }
+    return 'إشعار جديد';
   }
 
   Future<void> addWallet({
@@ -94,6 +153,24 @@ class AppCubit extends Cubit<AppStateEntity> {
     String? notes,
     DateTime? createdAt,
   }) async {
+    final walletName = walletId == null
+        ? null
+        : state.wallets.where((w) => w.id == walletId).map((w) => w.name).cast<String?>().firstWhere((_) => true, orElse: () => null);
+    final incomeName = incomeSourceId == null
+        ? null
+        : state.budgetSetup.incomeSources
+            .where((i) => i.id == incomeSourceId)
+            .map((i) => i.name)
+            .cast<String?>()
+            .firstWhere((_) => true, orElse: () => null);
+    final allocationName = allocationId == null
+        ? null
+        : state.budgetSetup.allocations
+            .where((a) => a.id == allocationId)
+            .map((a) => a.name)
+            .cast<String?>()
+            .firstWhere((_) => true, orElse: () => null);
+
     final transaction = TransactionEntity(
       id: _id('txn'),
       walletId: walletId,
@@ -113,8 +190,104 @@ class AppCubit extends Cubit<AppStateEntity> {
       action: type == 'transfer' ? 'transfer' : 'add',
       entityType: 'transaction',
       entityId: transaction.id,
-      details: 'تم تسجيل ${type == 'income' ? 'دخل' : type == 'expense' ? 'مصروف' : 'تحويل'} بقيمة ${amount.toStringAsFixed(2)}',
+      details: _transactionDetails(
+        type: type,
+        amount: amount,
+        walletName: walletName,
+        incomeName: incomeName,
+        allocationName: allocationName,
+        budgetScope: budgetScope,
+      ),
       apply: () => _repository.addTransaction(transaction),
+    );
+  }
+
+  String _transactionDetails({
+    required String type,
+    required double amount,
+    String? walletName,
+    String? incomeName,
+    String? allocationName,
+    String? budgetScope,
+  }) {
+    if (type == 'income') {
+      final source = incomeName ?? 'مصدر غير محدد';
+      final wallet = walletName ?? 'محفظة غير محددة';
+      return 'معاملة دخل بقيمة ${amount.toStringAsFixed(2)} من $source إلى $wallet';
+    }
+    if (type == 'expense') {
+      final budgetLabel = budgetScope == 'within-budget' ? 'داخل الميزانية' : 'خارج الميزانية';
+      final alloc = allocationName == null ? '' : ' ضمن مخصص $allocationName';
+      final wallet = walletName ?? 'محفظة غير محددة';
+      return 'معاملة مصروف بقيمة ${amount.toStringAsFixed(2)} من $wallet ($budgetLabel)$alloc';
+    }
+    return 'معاملة تحويل بقيمة ${amount.toStringAsFixed(2)}';
+  }
+
+  Future<void> deleteTransaction(String transactionId) async {
+    final target = state.transactions.where((t) => t.id == transactionId).toList();
+    if (target.isEmpty) {
+      return;
+    }
+    final transaction = target.first;
+    var wallets = List<WalletEntity>.from(state.wallets);
+    var linked = List<LinkedWalletEntity>.from(state.budgetSetup.linkedWallets);
+
+    if (transaction.type == 'transfer') {
+      wallets = wallets.map((w) {
+        if (transaction.fromWalletId != null && w.id == transaction.fromWalletId) {
+          return w.copyWith(balance: w.balance + transaction.amount);
+        }
+        if (transaction.toWalletId != null && w.id == transaction.toWalletId) {
+          return w.copyWith(balance: w.balance - transaction.amount);
+        }
+        return w;
+      }).toList();
+      linked = linked.map((j) {
+        if (transaction.toWalletId != null && j.id == transaction.toWalletId) {
+          return LinkedWalletEntity(
+            id: j.id,
+            name: j.name,
+            balance: j.balance - transaction.amount,
+            monthlyAmount: j.monthlyAmount,
+            executionDay: j.executionDay,
+            fundingSource: j.fundingSource,
+            funding: j.funding,
+            icon: j.icon,
+            iconColor: j.iconColor,
+            automationType: j.automationType,
+            categories: j.categories,
+          );
+        }
+        return j;
+      }).toList();
+    } else if (transaction.type == 'income') {
+      wallets = wallets.map((w) {
+        if (transaction.walletId != null && w.id == transaction.walletId) {
+          return w.copyWith(balance: w.balance - transaction.amount);
+        }
+        return w;
+      }).toList();
+    } else if (transaction.type == 'expense') {
+      wallets = wallets.map((w) {
+        if (transaction.walletId != null && w.id == transaction.walletId) {
+          return w.copyWith(balance: w.balance + transaction.amount);
+        }
+        return w;
+      }).toList();
+    }
+
+    final next = state.copyWith(
+      wallets: wallets,
+      budgetSetup: state.budgetSetup.copyWith(linkedWallets: linked),
+      transactions: state.transactions.where((t) => t.id != transactionId).toList(),
+    );
+    await _applyAndLog(
+      action: 'delete',
+      entityType: 'transaction',
+      entityId: transactionId,
+      details: 'تم حذف معاملة: ${transaction.notes ?? transaction.type} (${transaction.amount.toStringAsFixed(2)})',
+      apply: () async => next,
     );
   }
 
@@ -124,7 +297,10 @@ class AppCubit extends Cubit<AppStateEntity> {
       entityType: 'budget',
       entityId: 'budget-setup',
       details: 'تم تعديل إعدادات الميزانية',
-      apply: () => _repository.updateBudgetSetup(setup),
+      apply: () async {
+        final raw = await _repository.updateBudgetSetup(setup);
+        return _withMonthlySnapshot(raw, setup);
+      },
     );
   }
 
@@ -159,6 +335,65 @@ class AppCubit extends Cubit<AppStateEntity> {
     );
   }
 
+  Future<void> applySavingsReserve({
+    required String walletId,
+    required double amount,
+    required String action,
+  }) async {
+    if (amount <= 0) return;
+    final walletList = List<WalletEntity>.from(state.wallets);
+    final idx = walletList.indexWhere((w) => w.id == walletId);
+    if (idx == -1) return;
+    final wallet = walletList[idx];
+
+    double nextReserved = wallet.reservedForSavings;
+    if (action == 'allocate') {
+      nextReserved += amount;
+    } else {
+      nextReserved -= amount;
+    }
+    if (nextReserved < 0) nextReserved = 0;
+
+    walletList[idx] = wallet.copyWith(reservedForSavings: nextReserved);
+    final totalReserved = walletList.fold<double>(0, (s, w) => s + w.reservedForSavings);
+    final linked = state.budgetSetup.linkedWallets
+        .map(
+          (j) => j.id == 'linked-savings-default'
+              ? LinkedWalletEntity(
+                  id: j.id,
+                  name: j.name,
+                  balance: totalReserved,
+                  monthlyAmount: j.monthlyAmount,
+                  executionDay: j.executionDay,
+                  fundingSource: j.fundingSource,
+                  funding: j.funding,
+                  icon: j.icon,
+                  iconColor: j.iconColor,
+                  automationType: j.automationType,
+                  categories: j.categories,
+                )
+              : j,
+        )
+        .toList();
+
+    final next = state.copyWith(
+      wallets: walletList,
+      budgetSetup: state.budgetSetup.copyWith(linkedWallets: linked),
+    );
+    final label = action == 'allocate'
+        ? 'تم تخصيص ${amount.toStringAsFixed(2)} للتوفير من ${wallet.name}'
+        : action == 'cancel'
+            ? 'تم إلغاء تخصيص ${amount.toStringAsFixed(2)} من ${wallet.name}'
+            : 'تم صرف ${amount.toStringAsFixed(2)} من التخصيص في ${wallet.name}';
+    await _applyAndLog(
+      action: 'edit',
+      entityType: 'wallet',
+      entityId: wallet.id,
+      details: label,
+      apply: () async => next,
+    );
+  }
+
   Future<void> addLinkedWallet(LinkedWalletEntity linkedWallet) async {
     await updateBudgetSetup(state.budgetSetup.copyWith(linkedWallets: [...state.budgetSetup.linkedWallets, linkedWallet]));
   }
@@ -172,6 +407,9 @@ class AppCubit extends Cubit<AppStateEntity> {
   }
 
   Future<void> deleteLinkedWallet(String id) async {
+    if (id == 'linked-savings-default') {
+      return;
+    }
     await updateBudgetSetup(
       state.budgetSetup.copyWith(
         linkedWallets: state.budgetSetup.linkedWallets.where((wallet) => wallet.id != id).toList(),
@@ -237,18 +475,219 @@ class AppCubit extends Cubit<AppStateEntity> {
     String? currencyCode,
     bool? notificationsEnabled,
     String? googleEmail,
+    String? backupDirectoryPath,
+    String? autoBackupMode,
   }) async {
     final next = state.copyWith(
       userName: userName,
       currencyCode: currencyCode,
       notificationsEnabled: notificationsEnabled,
       googleEmail: googleEmail,
+      backupDirectoryPath: backupDirectoryPath,
+      autoBackupMode: autoBackupMode,
     );
     await _applyAndLog(
       action: 'edit',
       entityType: 'settings',
       entityId: 'app-settings',
       details: 'تم تعديل إعدادات التطبيق',
+      apply: () async => next,
+    );
+  }
+
+  Future<void> updateAutoBackupTimestamp(DateTime at) async {
+    final next = state.copyWith(lastAutoBackupAt: at.toIso8601String());
+    await _repository.saveState(next);
+    emit(next);
+  }
+
+  Future<void> addRecurringTransaction({
+    required String name,
+    required String type,
+    required double amount,
+    required int dayOfMonth,
+    required String executionType,
+    required String walletId,
+    required String budgetScope,
+    required String recurrencePattern,
+    int? weekday,
+    String? allocationId,
+    String? targetJarId,
+    String? incomeSourceId,
+    String? notes,
+  }) async {
+    final recurring = RecurringTransactionEntity(
+      id: _id('rec'),
+      name: name,
+      type: type,
+      amount: amount,
+      dayOfMonth: dayOfMonth,
+      executionType: executionType,
+      walletId: walletId,
+      budgetScope: budgetScope,
+      recurrencePattern: recurrencePattern,
+      weekday: weekday,
+      allocationId: allocationId,
+      targetJarId: targetJarId,
+      incomeSourceId: incomeSourceId,
+      notes: notes,
+    );
+    final next = state.copyWith(
+      recurringTransactions: [...state.recurringTransactions, recurring],
+    );
+    await _applyAndLog(
+      action: 'add',
+      entityType: 'recurring-transaction',
+      entityId: recurring.id,
+      details: 'تمت إضافة معاملة متكررة: $name',
+      apply: () async => next,
+    );
+  }
+
+  Future<void> updateRecurringTransaction(RecurringTransactionEntity recurring) async {
+    final next = state.copyWith(
+      recurringTransactions: state.recurringTransactions
+          .map((item) => item.id == recurring.id ? recurring : item)
+          .toList(),
+    );
+    await _applyAndLog(
+      action: 'edit',
+      entityType: 'recurring-transaction',
+      entityId: recurring.id,
+      details: 'تم تعديل معاملة متكررة',
+      apply: () async => next,
+    );
+  }
+
+  Future<void> deleteRecurringTransaction(String id) async {
+    final next = state.copyWith(
+      recurringTransactions:
+          state.recurringTransactions.where((item) => item.id != id).toList(),
+    );
+    await _applyAndLog(
+      action: 'delete',
+      entityType: 'recurring-transaction',
+      entityId: id,
+      details: 'تم حذف معاملة متكررة',
+      apply: () async => next,
+    );
+  }
+
+  Future<void> ensureDefaultSavingsJar() async {
+    final hasDefault = state.budgetSetup.linkedWallets.any((w) => w.id == 'linked-savings-default');
+    if (hasDefault) {
+      return;
+    }
+    final fallbackIncomeId = state.budgetSetup.incomeSources.isNotEmpty
+        ? state.budgetSetup.incomeSources.first.id
+        : '';
+    final defaultJar = LinkedWalletEntity(
+      id: 'linked-savings-default',
+      name: 'حصالة التوفير',
+      balance: 0,
+      monthlyAmount: 0,
+      executionDay: 1,
+      fundingSource: fallbackIncomeId,
+      funding: fallbackIncomeId.isEmpty
+          ? const []
+          : [
+              LinkedWalletEntityFunding(
+                id: _id('fund-linked'),
+                incomeSourceId: fallbackIncomeId,
+                plannedAmount: 0,
+              ),
+            ],
+      icon: 'savings',
+      iconColor: '#0f766e',
+      automationType: 'confirm',
+      categories: const [],
+    );
+    final nextSetup = state.budgetSetup.copyWith(
+      linkedWallets: [...state.budgetSetup.linkedWallets, defaultJar],
+    );
+    await _applyAndLog(
+      action: 'add',
+      entityType: 'linked-wallet',
+      entityId: defaultJar.id,
+      details: 'تم إنشاء حصالة التوفير الافتراضية',
+      apply: () async => state.copyWith(budgetSetup: nextSetup),
+    );
+  }
+
+  Future<void> syncSavingsJarWithReserved() async {
+    final totalReserved = state.wallets.fold<double>(0, (sum, w) => sum + w.reservedForSavings);
+    final idx = state.budgetSetup.linkedWallets.indexWhere((w) => w.id == 'linked-savings-default');
+    if (idx == -1) return;
+    final current = state.budgetSetup.linkedWallets[idx];
+    if ((current.balance - totalReserved).abs() < 0.0001) {
+      return;
+    }
+    final linked = List<LinkedWalletEntity>.from(state.budgetSetup.linkedWallets);
+    linked[idx] = LinkedWalletEntity(
+      id: current.id,
+      name: current.name,
+      balance: totalReserved,
+      monthlyAmount: current.monthlyAmount,
+      executionDay: current.executionDay,
+      fundingSource: current.fundingSource,
+      funding: current.funding,
+      icon: current.icon,
+      iconColor: current.iconColor,
+      automationType: current.automationType,
+      categories: current.categories,
+    );
+    final next = state.copyWith(
+      budgetSetup: state.budgetSetup.copyWith(linkedWallets: linked),
+    );
+    await _repository.saveState(next);
+    emit(next);
+  }
+
+  Future<void> addGoal({
+    required String name,
+    required double targetAmount,
+    required DateTime startDate,
+    required DateTime endDate,
+    String? notes,
+  }) async {
+    final goal = GoalEntity(
+      id: _id('goal'),
+      name: name,
+      targetAmount: targetAmount,
+      startDate: startDate,
+      endDate: endDate,
+      notes: notes,
+    );
+    final next = state.copyWith(goals: [...state.goals, goal]);
+    await _applyAndLog(
+      action: 'add',
+      entityType: 'goal',
+      entityId: goal.id,
+      details: 'تمت إضافة هدف: $name',
+      apply: () async => next,
+    );
+  }
+
+  Future<void> updateGoal(GoalEntity goal) async {
+    final next = state.copyWith(
+      goals: state.goals.map((item) => item.id == goal.id ? goal : item).toList(),
+    );
+    await _applyAndLog(
+      action: 'edit',
+      entityType: 'goal',
+      entityId: goal.id,
+      details: 'تم تعديل هدف',
+      apply: () async => next,
+    );
+  }
+
+  Future<void> deleteGoal(String id) async {
+    final next = state.copyWith(goals: state.goals.where((item) => item.id != id).toList());
+    await _applyAndLog(
+      action: 'delete',
+      entityType: 'goal',
+      entityId: id,
+      details: 'تم حذف هدف',
       apply: () async => next,
     );
   }
@@ -299,7 +738,27 @@ class AppCubit extends Cubit<AppStateEntity> {
       afterState: jsonEncode(_coreMap(restored)),
       isReverted: false,
     );
-    final next = restored.copyWith(logs: [revertLog, ...updatedLogs].take(600).toList());
+    final revertNotification = NotificationEntity(
+      id: _id('notif'),
+      title: 'إشعار التراجع',
+      message: revertLog.details,
+      createdAt: DateTime.now(),
+      type: 'revert',
+      relatedLogId: revertLog.id,
+    );
+    final next = restored.copyWith(
+      logs: [revertLog, ...updatedLogs].take(600).toList(),
+      notifications: [revertNotification, ...state.notifications].take(800).toList(),
+    );
+    await _repository.saveState(next);
+    emit(next);
+  }
+
+  Future<void> markNotificationRead(String notificationId) async {
+    final updated = state.notifications
+        .map((n) => n.id == notificationId && !n.isRead ? n.copyWith(readAt: DateTime.now()) : n)
+        .toList();
+    final next = state.copyWith(notifications: updated);
     await _repository.saveState(next);
     emit(next);
   }

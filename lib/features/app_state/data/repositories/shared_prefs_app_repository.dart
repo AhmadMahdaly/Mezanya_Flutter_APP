@@ -53,7 +53,31 @@ class SharedPrefsAppRepository implements AppRepository {
     var linkedWallets = List<LinkedWalletEntity>.from(current.budgetSetup.linkedWallets);
     var transactions = <TransactionEntity>[...current.transactions, transaction];
 
-    if (transaction.type == 'transfer' &&
+    if (transaction.transferType == 'jar-allocation' ||
+        transaction.transferType == 'jar-allocation-cancel' ||
+        transaction.transferType == 'jar-allocation-spend') {
+      linkedWallets = linkedWallets.map((wallet) {
+        if (wallet.id != transaction.toWalletId && wallet.id != transaction.walletId) {
+          return wallet;
+        }
+        final delta = transaction.transferType == 'jar-allocation'
+            ? transaction.amount
+            : -transaction.amount;
+        return LinkedWalletEntity(
+          id: wallet.id,
+          name: wallet.name,
+          balance: wallet.balance + delta,
+          monthlyAmount: wallet.monthlyAmount,
+          executionDay: wallet.executionDay,
+          fundingSource: wallet.fundingSource,
+          funding: wallet.funding,
+          icon: wallet.icon,
+          iconColor: wallet.iconColor,
+          automationType: wallet.automationType,
+          categories: wallet.categories,
+        );
+      }).toList();
+    } else if (transaction.type == 'transfer' &&
         transaction.fromWalletId != null &&
         transaction.toWalletId != null) {
       wallets = wallets.map((wallet) {
@@ -183,6 +207,42 @@ class SharedPrefsAppRepository implements AppRepository {
             transaction.type == 'income' ? wallet.balance + transaction.amount : wallet.balance - transaction.amount;
         return wallet.copyWith(balance: nextBalance);
       }).toList();
+      if (transaction.type == 'income' && transaction.toWalletId != null) {
+        linkedWallets = linkedWallets.map((wallet) {
+          if (wallet.id != transaction.toWalletId) return wallet;
+          return LinkedWalletEntity(
+            id: wallet.id,
+            name: wallet.name,
+            balance: wallet.balance + transaction.amount,
+            monthlyAmount: wallet.monthlyAmount,
+            executionDay: wallet.executionDay,
+            fundingSource: wallet.fundingSource,
+            funding: wallet.funding,
+            icon: wallet.icon,
+            iconColor: wallet.iconColor,
+            automationType: wallet.automationType,
+            categories: wallet.categories,
+          );
+        }).toList();
+      }
+      if (transaction.type == 'expense' && transaction.toWalletId != null) {
+        linkedWallets = linkedWallets.map((wallet) {
+          if (wallet.id != transaction.toWalletId) return wallet;
+          return LinkedWalletEntity(
+            id: wallet.id,
+            name: wallet.name,
+            balance: wallet.balance - transaction.amount,
+            monthlyAmount: wallet.monthlyAmount,
+            executionDay: wallet.executionDay,
+            fundingSource: wallet.fundingSource,
+            funding: wallet.funding,
+            icon: wallet.icon,
+            iconColor: wallet.iconColor,
+            automationType: wallet.automationType,
+            categories: wallet.categories,
+          );
+        }).toList();
+      }
     }
 
     final next = current.copyWith(

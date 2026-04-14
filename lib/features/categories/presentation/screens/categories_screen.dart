@@ -215,7 +215,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(section.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      Text(section.subtitle, style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                      Text(section.subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
                     ],
                   ),
                 ),
@@ -240,9 +240,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     width: 180,
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(14),
-                      boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 6)],
                     ),
                     child: Row(
                       children: [
@@ -259,7 +258,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           onPressed: () => _openCategoryDialog(section.target, editing: category),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                          icon: Icon(Icons.delete_outline, size: 18, color: Theme.of(context).colorScheme.error),
                           onPressed: () => _deleteCategory(section.target, category),
                         ),
                       ],
@@ -299,8 +298,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     ListTile(
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        side: const BorderSide(color: Color(0xFFE5E7EB)),
                       ),
+                      tileColor: Theme.of(context).colorScheme.surface,
                       leading: Container(
                         width: 34,
                         height: 34,
@@ -348,13 +347,23 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           borderRadius: BorderRadius.circular(12),
                           child: Container(
                             decoration: BoxDecoration(
-                              color: _parseColor(item),
+                              color: active ? _parseColor(item) : Theme.of(context).colorScheme.surface,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                width: active ? 2 : 1,
-                                color: active ? Colors.black87 : Colors.white,
-                              ),
                             ),
+                            child: active
+                                ? Container(
+                                    decoration: BoxDecoration(
+                                      color: _parseColor(item),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  )
+                                : Container(
+                                    decoration: BoxDecoration(
+                                      color: _parseColor(item),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    margin: const EdgeInsets.all(2), // tiny inset if not active to represent ghosting
+                                  ),
                           ),
                         );
                       },
@@ -363,7 +372,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF5F5F5),
+                        color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
@@ -575,20 +584,17 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           borderRadius: BorderRadius.circular(12),
                           child: Container(
                             decoration: BoxDecoration(
-                              color: isActive ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                              color: isActive ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.surface,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isActive ? const Color(0xFF0F172A) : const Color(0xFFE2E8F0),
-                              ),
                             ),
-                            child: Icon(item.$2, color: isActive ? Colors.white : const Color(0xFF0F172A)),
+                            child: Icon(item.$2, color: isActive ? Colors.white : Theme.of(context).colorScheme.onSurface),
                           ),
                         );
                       },
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text('عدد الأيقونات: ${options.length}', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                  Text('عدد الأيقونات: ${options.length}', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
                 ],
               ),
             ),

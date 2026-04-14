@@ -51,6 +51,7 @@ class SharedPrefsAppRepository implements AppRepository {
     final current = await loadState();
     var wallets = List<WalletEntity>.from(current.wallets);
     var linkedWallets = List<LinkedWalletEntity>.from(current.budgetSetup.linkedWallets);
+    var transactions = <TransactionEntity>[...current.transactions, transaction];
 
     if (transaction.type == 'transfer' &&
         transaction.fromWalletId != null &&
@@ -83,7 +84,99 @@ class SharedPrefsAppRepository implements AppRepository {
         }
         return wallet;
       }).toList();
+    } else if (transaction.type == 'income' && transaction.incomeSourceId != null) {
+      // Income is first deposited to the selected wallet.
+      wallets = wallets.map((wallet) {
+        if (wallet.id != transaction.walletId) return wallet;
+        final nextBalance = wallet.balance + transaction.amount;
+        return wallet.copyWith(balance: nextBalance);
+      }).toList();
+
+      final sourceId = transaction.incomeSourceId!;
+      var remaining = transaction.amount;
+
+      // Then planned jar transfers are executed from the deposited amount.
+      for (final jar in linkedWallets) {
+        final jarPlan = jar.funding
+            .where((f) => f.incomeSourceId == sourceId)
+            .fold<double>(0, (s, f) => s + f.plannedAmount);
+        if (jarPlan <= 0 || remaining <= 0) {
+          continue;
+        }
+        final transferAmount = jarPlan <= remaining ? jarPlan : remaining;
+        remaining -= transferAmount;
+
+        wallets = wallets.map((wallet) {
+          if (wallet.id != transaction.walletId) {
+            return wallet;
+          }
+          return wallet.copyWith(balance: wallet.balance - transferAmount);
+        }).toList();
+
+        linkedWallets = linkedWallets.map((wallet) {
+          if (wallet.id != jar.id) {
+            return wallet;
+          }
+          return LinkedWalletEntity(
+            id: wallet.id,
+            name: wallet.name,
+            balance: wallet.balance + transferAmount,
+            monthlyAmount: wallet.monthlyAmount,
+            executionDay: wallet.executionDay,
+            fundingSource: wallet.fundingSource,
+            funding: wallet.funding,
+            icon: wallet.icon,
+            iconColor: wallet.iconColor,
+            automationType: wallet.automationType,
+            categories: wallet.categories,
+          );
+        }).toList();
+
+        transactions.add(
+          TransactionEntity(
+            id: 'txn-auto-jar-${DateTime.now().microsecondsSinceEpoch}',
+            amount: transferAmount,
+            type: 'transfer',
+            fromWalletId: transaction.walletId,
+            toWalletId: jar.id,
+            transferType: 'jar-funding',
+            notes: 'تحويل تلقائي للحصالة: ${jar.name}',
+            createdAt: transaction.createdAt,
+            incomeSourceId: sourceId,
+          ),
+        );
+      }
+
+      // Then planned debt deductions execute from the same deposited amount.
+      for (final debt in current.budgetSetup.debts.where((d) => d.fundingSource == sourceId)) {
+        if (remaining <= 0) {
+          break;
+        }
+        final debtAmount = debt.amount <= remaining ? debt.amount : remaining;
+        remaining -= debtAmount;
+
+        wallets = wallets.map((wallet) {
+          if (wallet.id != transaction.walletId) {
+            return wallet;
+          }
+          return wallet.copyWith(balance: wallet.balance - debtAmount);
+        }).toList();
+
+        transactions.add(
+          TransactionEntity(
+            id: 'txn-auto-debt-${DateTime.now().microsecondsSinceEpoch}',
+            amount: debtAmount,
+            type: 'expense',
+            walletId: transaction.walletId,
+            budgetScope: 'outside-budget',
+            notes: 'سداد تلقائي للدين: ${debt.name}',
+            createdAt: transaction.createdAt,
+            incomeSourceId: sourceId,
+          ),
+        );
+      }
     } else {
+      // Regular expense/income without linked source behavior.
       wallets = wallets.map((wallet) {
         if (wallet.id != transaction.walletId) return wallet;
         final nextBalance =
@@ -95,7 +188,7 @@ class SharedPrefsAppRepository implements AppRepository {
     final next = current.copyWith(
       wallets: wallets,
       budgetSetup: current.budgetSetup.copyWith(linkedWallets: linkedWallets),
-      transactions: <TransactionEntity>[...current.transactions, transaction],
+      transactions: transactions,
     );
     await saveState(next);
     return next;

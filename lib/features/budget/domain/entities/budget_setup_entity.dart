@@ -72,6 +72,8 @@ class AllocationEntity {
   const AllocationEntity({
     required this.id,
     required this.name,
+    required this.icon,
+    required this.iconColor,
     required this.rolloverBehavior,
     required this.funding,
     required this.categories,
@@ -79,6 +81,8 @@ class AllocationEntity {
 
   final String id;
   final String name;
+  final String icon;
+  final String iconColor;
   final String rolloverBehavior;
   final List<AllocationFundingEntity> funding;
   final List<CategoryEntity> categories;
@@ -86,6 +90,8 @@ class AllocationEntity {
   Map<String, dynamic> toMap() => {
         'id': id,
         'name': name,
+        'icon': icon,
+        'iconColor': iconColor,
         'rolloverBehavior': rolloverBehavior,
         'funding': funding.map((e) => e.toMap()).toList(),
         'categories': categories.map((e) => e.toMap()).toList(),
@@ -94,6 +100,8 @@ class AllocationEntity {
   factory AllocationEntity.fromMap(Map<String, dynamic> map) => AllocationEntity(
         id: map['id'] as String? ?? '',
         name: map['name'] as String? ?? '',
+        icon: map['icon'] as String? ?? 'category',
+        iconColor: map['iconColor'] as String? ?? '#165b47',
         rolloverBehavior: map['rolloverBehavior'] as String? ?? 'to-savings',
         funding: (map['funding'] as List<dynamic>? ?? [])
             .whereType<Map<String, dynamic>>()

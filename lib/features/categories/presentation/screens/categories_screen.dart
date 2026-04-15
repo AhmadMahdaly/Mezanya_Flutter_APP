@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/widgets/app_icon_picker_dialog.dart';
 import '../../../app_state/presentation/cubits/app_cubit.dart';
 import '../../../app_state/domain/entities/app_state_entity.dart';
 import '../../domain/entities/category_entity.dart';
@@ -15,97 +16,6 @@ class CategoriesScreen extends StatefulWidget {
 
 class _CategoriesScreenState extends State<CategoriesScreen> {
   String _tab = 'expense';
-
-  static const _families = [
-    ('food', 'أكل'),
-    ('health', 'علاج'),
-    ('work', 'شغل'),
-    ('money', 'فلوس'),
-    ('home', 'بيت'),
-    ('transport', 'مواصلات'),
-    ('fun', 'ترفيه'),
-    ('shopping', 'تسوق'),
-    ('tech', 'تقنية'),
-  ];
-
-  static const _iconsByFamily = <String, List<(String, IconData)>>{
-    'food': [
-      ('food_1', Icons.restaurant), ('food_2', Icons.local_pizza), ('food_3', Icons.fastfood), ('food_4', Icons.ramen_dining),
-      ('food_5', Icons.coffee), ('food_6', Icons.cake), ('food_7', Icons.icecream), ('food_8', Icons.egg_alt),
-      ('food_9', Icons.lunch_dining), ('food_10', Icons.dinner_dining), ('food_11', Icons.local_drink), ('food_12', Icons.wine_bar),
-      ('food_13', Icons.kebab_dining), ('food_14', Icons.bakery_dining), ('food_15', Icons.set_meal), ('food_16', Icons.soup_kitchen),
-      ('food_17', Icons.restaurant_menu), ('food_18', Icons.cookie), ('food_19', Icons.brunch_dining), ('food_20', Icons.takeout_dining),
-    ],
-    'health': [
-      ('health_1', Icons.favorite), ('health_2', Icons.medication), ('health_3', Icons.local_hospital), ('health_4', Icons.health_and_safety),
-      ('health_5', Icons.monitor_heart), ('health_6', Icons.vaccines), ('health_7', Icons.medical_services), ('health_8', Icons.sick),
-      ('health_9', Icons.healing), ('health_10', Icons.bloodtype), ('health_11', Icons.spa), ('health_12', Icons.elderly),
-      ('health_13', Icons.clean_hands), ('health_14', Icons.masks), ('health_15', Icons.air), ('health_16', Icons.wc),
-      ('health_17', Icons.accessibility_new), ('health_18', Icons.fitness_center), ('health_19', Icons.run_circle), ('health_20', Icons.self_improvement),
-    ],
-    'work': [
-      ('work_1', Icons.work), ('work_2', Icons.business), ('work_3', Icons.apartment), ('work_4', Icons.badge),
-      ('work_5', Icons.description), ('work_6', Icons.assignment), ('work_7', Icons.checklist), ('work_8', Icons.calculate),
-      ('work_9', Icons.attach_money), ('work_10', Icons.cases), ('work_11', Icons.event_note), ('work_12', Icons.fact_check),
-      ('work_13', Icons.groups), ('work_14', Icons.handshake), ('work_15', Icons.engineering), ('work_16', Icons.sell),
-      ('work_17', Icons.store_mall_directory), ('work_18', Icons.laptop), ('work_19', Icons.desktop_windows), ('work_20', Icons.print),
-    ],
-    'money': [
-      ('money_1', Icons.account_balance_wallet), ('money_2', Icons.account_balance), ('money_3', Icons.credit_card), ('money_4', Icons.payments),
-      ('money_5', Icons.currency_exchange), ('money_6', Icons.savings), ('money_7', Icons.receipt_long), ('money_8', Icons.toll),
-      ('money_9', Icons.request_quote), ('money_10', Icons.price_check), ('money_11', Icons.price_change), ('money_12', Icons.paid),
-      ('money_13', Icons.monetization_on), ('money_14', Icons.wallet), ('money_15', Icons.trending_up), ('money_16', Icons.trending_down),
-      ('money_17', Icons.analytics), ('money_18', Icons.shopping_bag), ('money_19', Icons.local_atm), ('money_20', Icons.qr_code_scanner),
-    ],
-    'home': [
-      ('home_1', Icons.home), ('home_2', Icons.bed), ('home_3', Icons.weekend), ('home_4', Icons.kitchen),
-      ('home_5', Icons.chair), ('home_6', Icons.bathtub), ('home_7', Icons.shower), ('home_8', Icons.light),
-      ('home_9', Icons.garage), ('home_10', Icons.roofing), ('home_11', Icons.door_front_door), ('home_12', Icons.window),
-      ('home_13', Icons.cleaning_services), ('home_14', Icons.local_laundry_service), ('home_15', Icons.yard), ('home_16', Icons.hvac),
-      ('home_17', Icons.blender), ('home_18', Icons.microwave), ('home_19', Icons.tv), ('home_20', Icons.charging_station),
-    ],
-    'transport': [
-      ('transport_1', Icons.directions_car), ('transport_2', Icons.directions_bus), ('transport_3', Icons.train), ('transport_4', Icons.flight),
-      ('transport_5', Icons.two_wheeler), ('transport_6', Icons.directions_bike), ('transport_7', Icons.local_taxi), ('transport_8', Icons.local_gas_station),
-      ('transport_9', Icons.ev_station), ('transport_10', Icons.pin_drop), ('transport_11', Icons.map), ('transport_12', Icons.route),
-      ('transport_13', Icons.alt_route), ('transport_14', Icons.navigation), ('transport_15', Icons.local_shipping), ('transport_16', Icons.airport_shuttle),
-      ('transport_17', Icons.directions_boat), ('transport_18', Icons.subway), ('transport_19', Icons.traffic), ('transport_20', Icons.no_crash),
-    ],
-    'fun': [
-      ('fun_1', Icons.sports_esports), ('fun_2', Icons.movie), ('fun_3', Icons.music_note), ('fun_4', Icons.celebration),
-      ('fun_5', Icons.sports_soccer), ('fun_6', Icons.sports_basketball), ('fun_7', Icons.sports_tennis), ('fun_8', Icons.sports_gymnastics),
-      ('fun_9', Icons.beach_access), ('fun_10', Icons.casino), ('fun_11', Icons.attractions), ('fun_12', Icons.nightlife),
-      ('fun_13', Icons.theaters), ('fun_14', Icons.mic), ('fun_15', Icons.piano), ('fun_16', Icons.palette),
-      ('fun_17', Icons.camera_alt), ('fun_18', Icons.photo_camera), ('fun_19', Icons.videogame_asset), ('fun_20', Icons.book),
-    ],
-    'shopping': [
-      ('shopping_1', Icons.shopping_cart), ('shopping_2', Icons.shopping_bag), ('shopping_3', Icons.store), ('shopping_4', Icons.inventory_2),
-      ('shopping_5', Icons.checkroom), ('shopping_6', Icons.card_giftcard), ('shopping_7', Icons.diamond), ('shopping_8', Icons.sell),
-      ('shopping_9', Icons.local_mall), ('shopping_10', Icons.local_offer), ('shopping_11', Icons.storefront), ('shopping_12', Icons.add_shopping_cart),
-      ('shopping_13', Icons.receipt), ('shopping_14', Icons.redeem), ('shopping_15', Icons.watch), ('shopping_16', Icons.shopping_basket),
-      ('shopping_17', Icons.local_grocery_store), ('shopping_18', Icons.kitchen), ('shopping_19', Icons.chair_alt), ('shopping_20', Icons.style),
-    ],
-    'tech': [
-      ('tech_1', Icons.smartphone), ('tech_2', Icons.laptop), ('tech_3', Icons.devices), ('tech_4', Icons.memory),
-      ('tech_5', Icons.wifi), ('tech_6', Icons.router), ('tech_7', Icons.cable), ('tech_8', Icons.watch),
-      ('tech_9', Icons.headphones), ('tech_10', Icons.keyboard), ('tech_11', Icons.mouse), ('tech_12', Icons.desktop_windows),
-      ('tech_13', Icons.print), ('tech_14', Icons.sd_storage), ('tech_15', Icons.developer_board), ('tech_16', Icons.battery_charging_full),
-      ('tech_17', Icons.usb), ('tech_18', Icons.power), ('tech_19', Icons.settings_input_component), ('tech_20', Icons.security),
-    ],
-  };
-
-  static const _colors = [
-    '#165b47',
-    '#0f766e',
-    '#2563eb',
-    '#7c3aed',
-    '#c2410c',
-    '#dc2626',
-    '#d97706',
-    '#0f172a',
-    '#be185d',
-    '#334155',
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -274,8 +184,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
   Future<void> _openCategoryDialog(_CategoryTarget target, {CategoryEntity? editing}) async {
     final nameController = TextEditingController(text: editing?.name ?? '');
-    var family = _familyForIcon(editing?.icon ?? 'UtensilsCrossed');
-    var selectedIcon = editing?.icon ?? 'UtensilsCrossed';
+    var selectedIcon = editing?.icon ?? 'category';
     var selectedColor = editing?.color ?? '#165b47';
 
     await showDialog<void>(
@@ -295,78 +204,25 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     const SizedBox(height: 6),
                     TextField(controller: nameController, decoration: const InputDecoration(hintText: 'مثال: مطعم')),
                     const SizedBox(height: 14),
-                    ListTile(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final picked = await AppIconPickerDialog.show(
+                            context,
+                            initialIconName: selectedIcon,
+                            initialColorHex: selectedColor,
+                            title: 'اختيار أيقونة الفئة',
+                          );
+                          if (picked == null) return;
+                          setDialog(() {
+                            selectedIcon = picked.iconName;
+                            selectedColor = picked.colorHex;
+                          });
+                        },
+                        icon: const Icon(Icons.palette_outlined),
+                        label: const Text('اختيار الأيقونة'),
                       ),
-                      tileColor: Theme.of(context).colorScheme.surface,
-                      leading: Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: _parseColor(selectedColor),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(_iconForName(selectedIcon), color: Colors.white, size: 18),
-                      ),
-                      title: const Text('الأيقونة'),
-                      subtitle: Text(_familyTitle(family)),
-                      trailing: const Icon(Icons.arrow_drop_down),
-                      onTap: () async {
-                        final picked = await _pickIconFromDialog(
-                          family: family,
-                          selectedIcon: selectedIcon,
-                        );
-                        if (picked == null) {
-                          return;
-                        }
-                        setDialog(() {
-                          family = picked.$1;
-                          selectedIcon = picked.$2;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    const Text('لون الخلفية'),
-                    const SizedBox(height: 6),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _colors.length,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 5,
-                        mainAxisSpacing: 8,
-                        crossAxisSpacing: 8,
-                        childAspectRatio: 1,
-                      ),
-                      itemBuilder: (context, index) {
-                        final item = _colors[index];
-                        final active = selectedColor == item;
-                        return InkWell(
-                          onTap: () => setDialog(() => selectedColor = item),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: active ? _parseColor(item) : Theme.of(context).colorScheme.surface,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: active
-                                ? Container(
-                                    decoration: BoxDecoration(
-                                      color: _parseColor(item),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  )
-                                : Container(
-                                    decoration: BoxDecoration(
-                                      color: _parseColor(item),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    margin: const EdgeInsets.all(2), // tiny inset if not active to represent ghosting
-                                  ),
-                          ),
-                        );
-                      },
                     ),
                     const SizedBox(height: 14),
                     Container(
@@ -497,30 +353,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     await widget.cubit.setCategories(state.categories.where((c) => c.id != category.id).toList());
   }
 
-  String _familyForIcon(String icon) {
-    for (final family in _families) {
-      final icons = _iconsByFamily[family.$1] ?? const <(String, IconData)>[];
-      if (icons.any((item) => item.$1 == icon)) {
-        return family.$1;
-      }
-    }
-    return 'food';
-  }
-
   IconData _iconForName(String icon) {
-    for (final list in _iconsByFamily.values) {
-      for (final item in list) {
-        if (item.$1 == icon) {
-          return item.$2;
-        }
-      }
-    }
-    return Icons.category;
-  }
-
-  String _familyTitle(String familyKey) {
-    final entry = _families.where((f) => f.$1 == familyKey).toList();
-    return entry.isEmpty ? 'أيقونة' : entry.first.$2;
+    return AppIconPickerDialog.iconDataForName(icon);
   }
 
   Color _parseColor(String hex) {
@@ -528,88 +362,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     return Color(0xFF000000 | value);
   }
 
-  Future<(String, String)?> _pickIconFromDialog({
-    required String family,
-    required String selectedIcon,
-  }) async {
-    var selectedFamily = family;
-    var selected = selectedIcon;
-
-    return showDialog<(String, String)>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialog) {
-          final options = _iconsByFamily[selectedFamily] ?? const <(String, IconData)>[];
-          return AlertDialog(
-            title: const Text('اختيار الأيقونة'),
-            content: SizedBox(
-              width: 540,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DropdownButtonFormField<String>(
-                    initialValue: selectedFamily,
-                    decoration: const InputDecoration(labelText: 'الكاتيجوري'),
-                    items: _families
-                        .map((f) => DropdownMenuItem(value: f.$1, child: Text(f.$2)))
-                        .toList(),
-                    onChanged: (v) {
-                      if (v == null) {
-                        return;
-                      }
-                      setDialog(() {
-                        selectedFamily = v;
-                        final first = _iconsByFamily[v]!.first;
-                        selected = first.$1;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    height: 300,
-                    child: GridView.builder(
-                      itemCount: options.length,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4,
-                        mainAxisSpacing: 8,
-                        crossAxisSpacing: 8,
-                        childAspectRatio: 1,
-                      ),
-                      itemBuilder: (context, index) {
-                        final item = options[index];
-                        final isActive = selected == item.$1;
-                        return InkWell(
-                          onTap: () => setDialog(() => selected = item.$1),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: isActive ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.surface,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(item.$2, color: isActive ? Colors.white : Theme.of(context).colorScheme.onSurface),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text('عدد الأيقونات: ${options.length}', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, (selectedFamily, selected)),
-                child: const Text('اختيار'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
 }
 
 class _CategoryTarget {

@@ -9,6 +9,8 @@ class RecurringTransactionEntity {
     required this.walletId,
     required this.budgetScope,
     required this.recurrencePattern,
+    required this.icon,
+    required this.iconColor,
     this.weekday,
     this.allocationId,
     this.targetJarId,
@@ -26,6 +28,8 @@ class RecurringTransactionEntity {
   final String walletId;
   final String budgetScope;
   final String recurrencePattern;
+  final String icon;
+  final String iconColor;
   final int? weekday;
   final String? allocationId;
   final String? targetJarId;
@@ -43,6 +47,8 @@ class RecurringTransactionEntity {
     String? walletId,
     String? budgetScope,
     String? recurrencePattern,
+    String? icon,
+    String? iconColor,
     int? weekday,
     String? allocationId,
     String? targetJarId,
@@ -60,6 +66,8 @@ class RecurringTransactionEntity {
       walletId: walletId ?? this.walletId,
       budgetScope: budgetScope ?? this.budgetScope,
       recurrencePattern: recurrencePattern ?? this.recurrencePattern,
+      icon: icon ?? this.icon,
+      iconColor: iconColor ?? this.iconColor,
       weekday: weekday ?? this.weekday,
       allocationId: allocationId ?? this.allocationId,
       targetJarId: targetJarId ?? this.targetJarId,
@@ -80,6 +88,8 @@ class RecurringTransactionEntity {
       'walletId': walletId,
       'budgetScope': budgetScope,
       'recurrencePattern': recurrencePattern,
+      'icon': icon,
+      'iconColor': iconColor,
       'weekday': weekday,
       'allocationId': allocationId,
       'targetJarId': targetJarId,
@@ -100,6 +110,8 @@ class RecurringTransactionEntity {
       walletId: map['walletId'] as String? ?? '',
       budgetScope: map['budgetScope'] as String? ?? 'outside-budget',
       recurrencePattern: map['recurrencePattern'] as String? ?? 'monthly',
+      icon: map['icon'] as String? ?? 'category',
+      iconColor: map['iconColor'] as String? ?? '#165b47',
       weekday: map['weekday'] as int?,
       allocationId: map['allocationId'] as String?,
       targetJarId: map['targetJarId'] as String?,

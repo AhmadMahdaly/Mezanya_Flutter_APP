@@ -691,6 +691,8 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
                             name: nameController.text.trim().isEmpty
                                 ? a.name
                                 : nameController.text.trim(),
+                            icon: a.icon,
+                            iconColor: a.iconColor,
                             rolloverBehavior: a.rolloverBehavior,
                             funding: [
                               AllocationFundingEntity(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/widgets/app_icon_picker_dialog.dart';
 import '../../../app_state/presentation/cubits/app_cubit.dart';
 import '../../../budget/domain/entities/budget_setup_entity.dart';
 import '../../../categories/domain/entities/category_entity.dart';
@@ -28,88 +29,6 @@ class AddTransactionScreen extends StatefulWidget {
 }
 
 class _AddTransactionScreenState extends State<AddTransactionScreen> {
-  static const _families = [
-    ('food', 'أكل'),
-    ('health', 'علاج'),
-    ('work', 'شغل'),
-    ('money', 'فلوس'),
-    ('home', 'بيت'),
-    ('transport', 'مواصلات'),
-    ('fun', 'ترفيه'),
-    ('shopping', 'تسوق'),
-    ('tech', 'تقنية'),
-  ];
-
-  static const _icons = [
-    ('UtensilsCrossed', 'food', 'وجبات', Icons.restaurant),
-    ('Pizza', 'food', 'مطاعم', Icons.local_pizza),
-    ('Coffee', 'food', 'قهوة', Icons.coffee),
-    ('Apple', 'food', 'فواكه', Icons.apple),
-    ('CookingPot', 'food', 'طبخ', Icons.soup_kitchen),
-    ('CupSoda', 'food', 'مشروبات', Icons.local_drink),
-    ('HeartPulse', 'health', 'صحة', Icons.favorite),
-    ('Pill', 'health', 'دواء', Icons.medication),
-    ('Stethoscope', 'health', 'كشف', Icons.health_and_safety),
-    ('Syringe', 'health', 'حقن', Icons.vaccines),
-    ('Hospital', 'health', 'مستشفى', Icons.local_hospital),
-    ('ShieldPlus', 'health', 'رعاية', Icons.health_and_safety_outlined),
-    ('BriefcaseBusiness', 'work', 'شغل', Icons.work),
-    ('Building2', 'work', 'شركة', Icons.apartment),
-    ('Laptop2', 'work', 'عمل رقمي', Icons.laptop),
-    ('Calculator', 'work', 'حسابات', Icons.calculate),
-    ('BadgeDollarSign', 'work', 'دخل', Icons.attach_money),
-    ('ClipboardList', 'work', 'مهام', Icons.checklist),
-    ('Wallet2', 'money', 'محفظة', Icons.account_balance_wallet),
-    ('CreditCard', 'money', 'بطاقة', Icons.credit_card),
-    ('Landmark', 'money', 'بنك', Icons.account_balance),
-    ('Banknote', 'money', 'كاش', Icons.payments),
-    ('Coins', 'money', 'عملات', Icons.toll),
-    ('Receipt', 'money', 'فاتورة', Icons.receipt_long),
-    ('Home', 'home', 'منزل', Icons.home),
-    ('BedSingle', 'home', 'غرفة', Icons.bed),
-    ('Sofa', 'home', 'أثاث', Icons.weekend),
-    ('WashingMachine', 'home', 'غسيل', Icons.local_laundry_service),
-    ('ShowerHead', 'home', 'مرافق', Icons.shower),
-    ('LampDesk', 'home', 'إضاءة', Icons.desk),
-    ('CarFront', 'transport', 'سيارة', Icons.directions_car),
-    ('BusFront', 'transport', 'أتوبيس', Icons.directions_bus),
-    ('Bike', 'transport', 'دراجة', Icons.directions_bike),
-    ('Plane', 'transport', 'سفر', Icons.flight),
-    ('Fuel', 'transport', 'بنزين', Icons.local_gas_station),
-    ('MapPinned', 'transport', 'مشوار', Icons.pin_drop),
-    ('Gamepad2', 'fun', 'ألعاب', Icons.sports_esports),
-    ('Film', 'fun', 'أفلام', Icons.movie),
-    ('Music4', 'fun', 'موسيقى', Icons.music_note),
-    ('Ticket', 'fun', 'تذاكر', Icons.confirmation_number),
-    ('PartyPopper', 'fun', 'خروجات', Icons.celebration),
-    ('Tv', 'fun', 'مشاهدة', Icons.tv),
-    ('ShoppingCart', 'shopping', 'تسوق', Icons.shopping_cart),
-    ('Store', 'shopping', 'متجر', Icons.store),
-    ('Package', 'shopping', 'طلبات', Icons.inventory_2),
-    ('Shirt', 'shopping', 'ملابس', Icons.checkroom),
-    ('Gift', 'shopping', 'هدايا', Icons.card_giftcard),
-    ('Gem', 'shopping', 'مشتريات', Icons.diamond),
-    ('Smartphone', 'tech', 'موبايل', Icons.smartphone),
-    ('Laptop', 'tech', 'لابتوب', Icons.laptop_mac),
-    ('MonitorSmartphone', 'tech', 'أجهزة', Icons.devices),
-    ('Wifi', 'tech', 'إنترنت', Icons.wifi),
-    ('Cable', 'tech', 'كابلات', Icons.cable),
-    ('Cpu', 'tech', 'تقنية', Icons.memory),
-  ];
-
-  static const _colors = [
-    '#165b47',
-    '#0f766e',
-    '#2563eb',
-    '#7c3aed',
-    '#c2410c',
-    '#dc2626',
-    '#d97706',
-    '#0f172a',
-    '#be185d',
-    '#334155',
-  ];
-
   String _type = 'expense';
   String _budgetScope = 'within-budget';
   String _incomeBudgetScope = 'outside-budget';
@@ -125,15 +44,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   String _incomeJarId = '';
   String _recurrencePattern = 'monthly';
   int _recurrenceWeekday = DateTime.now().weekday;
+  String _recurringIconName = 'category';
+  String _recurringIconColor = '#165b47';
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
+    _amountController.addListener(_refreshAmountPreview);
     final state = widget.cubit.state;
     _walletId = state.wallets.isNotEmpty ? state.wallets.first.id : '';
-    _incomeSourceId = state.budgetSetup.incomeSources.isNotEmpty
-        ? state.budgetSetup.incomeSources.first.id
-        : 'wallet-only';
+    _incomeSourceId = 'wallet-only';
     _incomeJarId = state.budgetSetup.linkedWallets.isNotEmpty
         ? state.budgetSetup.linkedWallets.first.id
         : '';
@@ -148,6 +69,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         _recurringNameController.text = r.name;
         _recurrencePattern = r.recurrencePattern;
         _recurrenceWeekday = r.weekday ?? _recurrenceWeekday;
+        _recurringIconName = r.icon;
+        _recurringIconColor = r.iconColor;
         _budgetScope = r.budgetScope;
         _incomeBudgetScope = r.budgetScope;
         _incomeSourceId = r.incomeSourceId ?? _incomeSourceId;
@@ -190,11 +113,39 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
   @override
   void dispose() {
+    _amountController.removeListener(_refreshAmountPreview);
     _amountController.dispose();
     _notesController.dispose();
     _recurringNameController.dispose();
     _newCategoryController.dispose();
     super.dispose();
+  }
+
+  void _refreshAmountPreview() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  bool get _canSubmit {
+    final amount = double.tryParse(_amountController.text.trim()) ?? 0;
+    if (_isSaving || amount <= 0 || _walletId.isEmpty) {
+      return false;
+    }
+    if (_type == 'expense' &&
+        _budgetScope == 'within-budget' &&
+        _budgetTargetId.isEmpty) {
+      return false;
+    }
+    if (_type == 'income' &&
+        _incomeBudgetScope == 'within-budget' &&
+        _incomeJarId.isEmpty) {
+      return false;
+    }
+    if (widget.recurringMode && _recurringNameController.text.trim().isEmpty) {
+      return false;
+    }
+    return true;
   }
 
   @override
@@ -204,8 +155,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     final budget = state.budgetSetup;
     final amount = double.tryParse(_amountController.text.trim()) ?? 0;
     final selectedWallet = wallets.where((w) => w.id == _walletId).toList();
-    final selectedWalletName =
-        selectedWallet.isEmpty ? 'اختر المحفظة' : selectedWallet.first.name;
+    final selectedWalletName = selectedWallet.isEmpty
+        ? 'اختر المحفظة'
+        : selectedWallet.first.name;
 
     final selectedAllocation = budget.allocations
         .where((a) => _budgetTargetId == 'alloc:${a.id}')
@@ -218,11 +170,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         : selectedJar.isNotEmpty
             ? 'حصالة: ${selectedJar.first.name}'
             : selectedAllocation.isEmpty
-            ? 'اختر المخصص'
-            : selectedAllocation.first.name;
-    final selectedIncomeJar = budget.linkedWallets
-        .where((j) => j.id == _incomeJarId)
-        .toList();
+                ? 'اختر المخصص'
+                : selectedAllocation.first.name;
+    final selectedIncomeJar =
+        budget.linkedWallets.where((j) => j.id == _incomeJarId).toList();
     final selectedIncomeJarName = selectedIncomeJar.isEmpty
         ? 'اختر الحصالة'
         : selectedIncomeJar.first.name;
@@ -241,11 +192,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
     final allocationItems = [
       if (budget.unallocatedAmount > 0)
-        const DropdownMenuItem(value: 'unallocated', child: Text('غير المخصص')),
-      ...budget.allocations
-          .map((a) => DropdownMenuItem(value: 'alloc:${a.id}', child: Text(a.name))),
-      ...budget.linkedWallets
-          .map((j) => DropdownMenuItem(value: 'jar:${j.id}', child: Text('حصالة: ${j.name}'))),
+        const DropdownMenuItem(
+            value: 'unallocated',
+            child: Text('غير المخصص')),
+      ...budget.allocations.map(
+          (a) => DropdownMenuItem(value: 'alloc:${a.id}', child: Text(a.name))),
+      ...budget.linkedWallets.map((j) => DropdownMenuItem(
+          value: 'jar:${j.id}',
+          child: Text('حصالة: ${j.name}'))),
     ];
     final allocationIds = allocationItems.map((item) => item.value!).toSet();
 
@@ -261,7 +215,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       });
     }
 
-    if (_budgetTargetId.isNotEmpty && !allocationIds.contains(_budgetTargetId)) {
+    if (_budgetTargetId.isNotEmpty &&
+        !allocationIds.contains(_budgetTargetId)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) {
           return;
@@ -273,13 +228,21 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+        gradient: LinearGradient(
+          colors: [
+            theme.scaffoldBackgroundColor,
+            theme.colorScheme.surface,
+            theme.colorScheme.secondaryContainer.withValues(alpha: 0.55),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
       ),
       child: SafeArea(
         top: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: [
             Center(
               child: Container(
@@ -292,63 +255,76 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               ),
             ),
             const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: ChoiceChip(
-                    label: const Text('مصروف'),
-                    selected: _type == 'expense',
-                    onSelected: widget.recurringMode
-                        ? null
-                        : (_) => setState(() => _type = 'expense'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ChoiceChip(
-                    label: const Text('دخل'),
-                    selected: _type == 'income',
-                    onSelected: widget.recurringMode
-                        ? null
-                        : (_) => setState(() {
-                      _type = 'income';
-                      _budgetTargetId = '';
-                    }),
-                  ),
-                ),
-              ],
-            ),
+            _typeSegmentedToggle(theme),
             if (widget.recurringMode) ...[
               const SizedBox(height: 10),
               TextField(
                 controller: _recurringNameController,
-                decoration: const InputDecoration(labelText: 'اسم المعاملة المتكررة'),
+                decoration: const InputDecoration(
+                    labelText: 'اسم المعاملة المتكررة'),
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 initialValue: _recurrencePattern,
                 decoration: const InputDecoration(labelText: 'التكرار'),
                 items: const [
-                  DropdownMenuItem(value: 'weekly', child: Text('مرة كل أسبوع')),
-                  DropdownMenuItem(value: 'biweekly', child: Text('مرة كل أسبوعين')),
-                  DropdownMenuItem(value: 'monthly', child: Text('مرة كل شهر')),
-                  DropdownMenuItem(value: 'every_2_months', child: Text('مرة كل شهرين')),
-                  DropdownMenuItem(value: 'every_3_months', child: Text('مرة كل 3 شهور')),
-                  DropdownMenuItem(value: 'every_6_months', child: Text('مرة كل 6 شهور')),
-                  DropdownMenuItem(value: 'yearly', child: Text('مرة كل سنة')),
+                  DropdownMenuItem(
+                      value: 'weekly',
+                      child: Text('مرة كل أسبوع')),
+                  DropdownMenuItem(
+                      value: 'biweekly',
+                      child: Text('مرة كل أسبوعين')),
+                  DropdownMenuItem(
+                      value: 'monthly',
+                      child: Text('مرة كل شهر')),
+                  DropdownMenuItem(
+                      value: 'every_2_months',
+                      child: Text('مرة كل شهرين')),
+                  DropdownMenuItem(
+                      value: 'every_3_months',
+                      child: Text('مرة كل 3 شهور')),
+                  DropdownMenuItem(
+                      value: 'every_6_months',
+                      child: Text('مرة كل 6 شهور')),
+                  DropdownMenuItem(
+                      value: 'yearly',
+                      child: Text('مرة كل سنة')),
                 ],
                 onChanged: (v) {
                   if (v != null) setState(() => _recurrencePattern = v);
                 },
               ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final picked = await AppIconPickerDialog.show(
+                      context,
+                      initialIconName: _recurringIconName,
+                      initialColorHex: _recurringIconColor,
+                      title: 'اختيار أيقونة المعاملة المتكررة',
+                    );
+                    if (picked == null) return;
+                    setState(() {
+                      _recurringIconName = picked.iconName;
+                      _recurringIconColor = picked.colorHex;
+                    });
+                  },
+                  icon: const Icon(Icons.palette_outlined),
+                  label: const Text('اختيار الأيقونة واللون'),
+                ),
+              ),
             ],
             const SizedBox(height: 14),
             TextField(
               controller: _amountController,
-              keyboardType: TextInputType.number,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
-              decoration: const InputDecoration(labelText: 'المبلغ'),
+              style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800),
+              decoration: const InputDecoration(
+                  labelText: 'المبلغ'),
             ),
             const SizedBox(height: 10),
             ListTile(
@@ -360,54 +336,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               trailing: const Icon(Icons.chevron_left),
               onTap: () => _openWalletPicker(wallets),
             ),
-            const SizedBox(height: 8),
-            ListTile(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.1))),
-              title: const Text('تاريخ المعاملة'),
-              subtitle: Text('${_date.day}/${_date.month}/${_date.year}'),
-              trailing: const Icon(Icons.calendar_month_outlined),
-              onTap: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: _date,
-                  firstDate: DateTime(2023),
-                  lastDate: DateTime(2100),
-                );
-                if (picked != null) {
-                  setState(() => _date = picked);
-                }
-              },
-            ),
-            const SizedBox(height: 8),
-            ListTile(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.1))),
-              title: const Text('وقت المعاملة'),
-              subtitle: Text(
-                '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}',
-              ),
-              trailing: const Icon(Icons.access_time),
-              onTap: () async {
-                final picked = await showTimePicker(
-                  context: context,
-                  initialTime: _time,
-                );
-                if (picked != null) {
-                  setState(() => _time = picked);
-                }
-              },
-            ),
             if (widget.recurringMode &&
                 (_recurrencePattern == 'weekly' ||
                     _recurrencePattern == 'biweekly')) ...[
               const SizedBox(height: 8),
               DropdownButtonFormField<int>(
                 initialValue: _recurrenceWeekday,
-                decoration: const InputDecoration(labelText: 'يوم الأسبوع'),
+                decoration: const InputDecoration(
+                    labelText: 'اليوم في الأسبوع'),
                 items: const [
                   DropdownMenuItem(value: 1, child: Text('الاثنين')),
                   DropdownMenuItem(value: 2, child: Text('الثلاثاء')),
@@ -433,7 +369,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Text('داخل الميزانية'),
+                    const Text(
+                        'داخل الميزانية'),
                     const Spacer(),
                     Switch(
                       value: _budgetScope == 'within-budget',
@@ -454,7 +391,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
                 tileColor: theme.colorScheme.surface,
-                title: const Text('المخصص'),
+                title: const Text('المخصص أو الحصالة'),
                 subtitle: Text(selectedAllocationName),
                 trailing: const Icon(Icons.chevron_left),
                 onTap: () => _openAllocationPicker(allocationItems, budget),
@@ -463,18 +400,19 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               _categoriesBlock(
                 title: 'الفئات',
                 categories: visibleCategories,
-                onAdd: _budgetTargetId.isEmpty && _budgetScope == 'within-budget'
-                    ? null
-                    : () => _openAddCategoryDialog(
-                          budgetScope: _budgetScope,
-                          allocationId: _budgetTargetId.startsWith('alloc:')
-                              ? _budgetTargetId.replaceFirst('alloc:', '')
-                              : '',
-                          linkedWalletId: _budgetTargetId.startsWith('jar:')
-                              ? _budgetTargetId.replaceFirst('jar:', '')
-                              : '',
-                          existing: visibleCategories,
-                        ),
+                onAdd:
+                    _budgetTargetId.isEmpty && _budgetScope == 'within-budget'
+                        ? null
+                        : () => _openAddCategoryDialog(
+                              budgetScope: _budgetScope,
+                              allocationId: _budgetTargetId.startsWith('alloc:')
+                                  ? _budgetTargetId.replaceFirst('alloc:', '')
+                                  : '',
+                              linkedWalletId: _budgetTargetId.startsWith('jar:')
+                                  ? _budgetTargetId.replaceFirst('jar:', '')
+                                  : '',
+                              existing: visibleCategories,
+                            ),
               ),
             ],
             if (_type == 'expense' && _budgetScope == 'outside-budget') ...[
@@ -494,10 +432,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
                 initialValue: _incomeSourceId,
-                decoration: const InputDecoration(labelText: 'مصدر الدخل'),
+                decoration: const InputDecoration(
+                    labelText: 'مصدر الدخل'),
                 items: [
                   const DropdownMenuItem(
-                      value: 'wallet-only', child: Text('إيداع للمحفظة فقط')),
+                      value: 'wallet-only',
+                      child: Text(
+                          'إيداع للمحفظة فقط')),
                   ...budget.incomeSources.map((i) =>
                       DropdownMenuItem(value: i.id, child: Text(i.name))),
                 ],
@@ -506,14 +447,16 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               ),
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surface,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
                   children: [
-                    const Text('داخل الميزانية'),
+                    const Text(
+                        'داخل الميزانية'),
                     const Spacer(),
                     Switch(
                       value: _incomeBudgetScope == 'within-budget',
@@ -542,10 +485,67 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               ],
             ],
             const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: ListTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                      ),
+                    ),
+                    title: const Text('التاريخ'),
+                    subtitle: Text('${_date.day}/${_date.month}/${_date.year}'),
+                    trailing: const Icon(Icons.calendar_month_outlined),
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _date,
+                        firstDate: DateTime(2023),
+                        lastDate: DateTime(2100),
+                      );
+                      if (picked != null) {
+                        setState(() => _date = picked);
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ListTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                      ),
+                    ),
+                    title: const Text('الوقت'),
+                    subtitle: Text(
+                      '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}',
+                    ),
+                    trailing: const Icon(Icons.access_time),
+                    onTap: () async {
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: _time,
+                      );
+                      if (picked != null) {
+                        setState(() => _time = picked);
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
             TextField(
               controller: _notesController,
               maxLines: 2,
-              decoration: const InputDecoration(labelText: 'الملاحظات'),
+              decoration: const InputDecoration(
+                  labelText: 'ملاحظات'),
             ),
             const SizedBox(height: 12),
             if (widget.recurringMode && widget.initialRecurring != null)
@@ -565,7 +565,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             if (!widget.recurringMode && widget.initialTransaction != null)
               TextButton(
                 onPressed: () async {
-                  await widget.cubit.deleteTransaction(widget.initialTransaction!.id);
+                  await widget.cubit
+                      .deleteTransaction(widget.initialTransaction!.id);
                   if (!context.mounted) return;
                   Navigator.of(context).pop();
                 },
@@ -575,30 +576,38 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 ),
               ),
             FilledButton(
-              onPressed: () async {
+              onPressed: !_canSubmit
+                  ? null
+                  : () async {
+                      setState(() => _isSaving = true);
+                      try {
                 if (amount <= 0) {
-                  _showValidationError('اكتب مبلغ صحيح أكبر من صفر.');
+                  _showValidationError(
+                      'أدخل مبلغًا صحيحًا أكبر من صفر.');
                   return;
                 }
                 if (_walletId.isEmpty) {
-                  _showValidationError('اختَر محفظة أولاً.');
+                  _showValidationError('اختر محفظة أولًا.');
                   return;
                 }
                 if (_type == 'expense' &&
                     _budgetScope == 'within-budget' &&
                     _budgetTargetId.isEmpty) {
-                  _showValidationError('اختَر مخصص للمعاملة داخل الميزانية.');
+                  _showValidationError(
+                      'اختر مخصصًا أو حصالة للمعاملة داخل الميزانية.');
                   return;
                 }
                 if (_budgetTargetId == 'unallocated' &&
                     amount > budget.unallocatedAmount) {
-                  _showValidationError('المبلغ أكبر من المتاح في غير المخصص.');
+                  _showValidationError(
+                      'المبلغ أكبر من المتاح في غير المخصص.');
                   return;
                 }
                 if (_type == 'income' &&
                     _incomeBudgetScope == 'within-budget' &&
                     _incomeJarId.isEmpty) {
-                  _showValidationError('اختَر حصالة للدخل داخل الميزانية.');
+                  _showValidationError(
+                      'اختر حصالة للدخل داخل الميزانية.');
                   return;
                 }
                 if (widget.recurringMode &&
@@ -614,16 +623,21 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 if (widget.recurringMode) {
                   final recurring = widget.initialRecurring;
                   final recurringEntity = RecurringTransactionEntity(
-                    id: recurring?.id ?? 'rec-${DateTime.now().microsecondsSinceEpoch}',
+                    id: recurring?.id ??
+                        'rec-${DateTime.now().microsecondsSinceEpoch}',
                     name: _recurringNameController.text.trim(),
                     type: _type,
                     amount: amount,
                     dayOfMonth: _date.day.clamp(1, 28),
                     executionType: 'confirm',
                     walletId: _walletId,
-                    budgetScope: _type == 'expense' ? _budgetScope : _incomeBudgetScope,
+                    budgetScope:
+                        _type == 'expense' ? _budgetScope : _incomeBudgetScope,
                     recurrencePattern: _recurrencePattern,
-                    weekday: (_recurrencePattern == 'weekly' || _recurrencePattern == 'biweekly')
+                    icon: _recurringIconName,
+                    iconColor: _recurringIconColor,
+                    weekday: (_recurrencePattern == 'weekly' ||
+                            _recurrencePattern == 'biweekly')
                         ? _recurrenceWeekday
                         : null,
                     allocationId: _type == 'expense' &&
@@ -631,14 +645,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             _budgetTargetId.startsWith('alloc:')
                         ? _budgetTargetId.replaceFirst('alloc:', '')
                         : null,
-                    targetJarId: _type == 'income' && _incomeBudgetScope == 'within-budget'
+                    targetJarId: _type == 'income' &&
+                            _incomeBudgetScope == 'within-budget'
                         ? _incomeJarId
-                        : (_type == 'expense' && _budgetTargetId.startsWith('jar:')
+                        : (_type == 'expense' &&
+                                _budgetTargetId.startsWith('jar:')
                             ? selectedJarId
                             : null),
-                    incomeSourceId: _type == 'income' && _incomeSourceId != 'wallet-only'
-                        ? _incomeSourceId
-                        : null,
+                    incomeSourceId:
+                        _type == 'income' && _incomeSourceId != 'wallet-only'
+                            ? _incomeSourceId
+                            : null,
                     notes: _notesController.text.trim().isEmpty
                         ? null
                         : _notesController.text.trim(),
@@ -654,6 +671,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       walletId: recurringEntity.walletId,
                       budgetScope: recurringEntity.budgetScope,
                       recurrencePattern: recurringEntity.recurrencePattern,
+                      icon: recurringEntity.icon,
+                      iconColor: recurringEntity.iconColor,
                       weekday: recurringEntity.weekday,
                       allocationId: recurringEntity.allocationId,
                       targetJarId: recurringEntity.targetJarId,
@@ -661,7 +680,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       notes: recurringEntity.notes,
                     );
                   } else {
-                    await widget.cubit.updateRecurringTransaction(recurringEntity);
+                    await widget.cubit
+                        .updateRecurringTransaction(recurringEntity);
                   }
                 } else {
                   if (widget.initialTransaction != null) {
@@ -670,38 +690,38 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     );
                   }
                   await widget.cubit.addTransaction(
-                  walletId: _walletId,
-                  toWalletId: _type == 'income' &&
-                          _incomeBudgetScope == 'within-budget'
-                      ? _incomeJarId
-                      : selectedJarId,
-                  amount: amount,
-                  type: _type,
-                  createdAt: DateTime(
-                    _date.year,
-                    _date.month,
-                    _date.day,
-                    _time.hour,
-                    _time.minute,
-                  ),
-                  allocationId: _type == 'expense' &&
-                          _budgetScope == 'within-budget' &&
-                          _budgetTargetId.startsWith('alloc:')
-                      ? _budgetTargetId.replaceFirst('alloc:', '')
-                      : null,
-                  budgetScope: _type == 'expense'
-                      ? _budgetScope
-                      : _type == 'income'
-                          ? _incomeBudgetScope
-                          : null,
-                  incomeSourceId:
-                      _type == 'income' && _incomeSourceId != 'wallet-only'
-                          ? _incomeSourceId
-                          : null,
-                  notes: _notesController.text.trim().isEmpty
-                      ? null
-                      : _notesController.text.trim(),
-                );
+                    walletId: _walletId,
+                    toWalletId: _type == 'income' &&
+                            _incomeBudgetScope == 'within-budget'
+                        ? _incomeJarId
+                        : selectedJarId,
+                    amount: amount,
+                    type: _type,
+                    createdAt: DateTime(
+                      _date.year,
+                      _date.month,
+                      _date.day,
+                      _time.hour,
+                      _time.minute,
+                    ),
+                    allocationId: _type == 'expense' &&
+                            _budgetScope == 'within-budget' &&
+                            _budgetTargetId.startsWith('alloc:')
+                        ? _budgetTargetId.replaceFirst('alloc:', '')
+                        : null,
+                    budgetScope: _type == 'expense'
+                        ? _budgetScope
+                        : _type == 'income'
+                            ? _incomeBudgetScope
+                            : null,
+                    incomeSourceId:
+                        _type == 'income' && _incomeSourceId != 'wallet-only'
+                            ? _incomeSourceId
+                            : null,
+                    notes: _notesController.text.trim().isEmpty
+                        ? null
+                        : _notesController.text.trim(),
+                  );
                 }
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -713,19 +733,112 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                               : 'تم تسجيل المعاملة.'))),
                 );
                 Navigator.of(context).pop();
-              },
+                      } finally {
+                        if (mounted) {
+                          setState(() => _isSaving = false);
+                        }
+                      }
+                    },
               child: Text(
                 widget.recurringMode
                     ? (widget.initialRecurring == null
                         ? 'حفظ المعاملة المتكررة'
-                        : 'حفظ تعديل التكرار')
+                        : 'تحديث التكرار')
                     : widget.initialTransaction != null
-                    ? 'حفظ التعديل'
-                    : (_type == 'income' ? 'تسجيل الدخل' : 'تسجيل المعاملة'),
+                        ? 'حفظ التعديل'
+                        : (_type == 'income'
+                            ? 'تسجيل الدخل'
+                            : 'تسجيل المعاملة'),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _typeSegmentedToggle(ThemeData theme) {
+    final activeOnRight = _type == 'income';
+    return Container(
+      height: 56,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.55),
+        ),
+      ),
+      child: Stack(
+        children: [
+          AnimatedAlign(
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutCubic,
+            alignment:
+                activeOnRight ? Alignment.centerRight : Alignment.centerLeft,
+            child: Container(
+              width: MediaQuery.of(context).size.width > 420 ? 190 : 165,
+              margin: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E7F5C),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x33207B5A),
+                    blurRadius: 12,
+                    offset: Offset(0, 5),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: widget.recurringMode
+                      ? null
+                      : () => setState(() => _type = 'expense'),
+                  child: Center(
+                    child: Text(
+                      'مصروف',
+                      style: TextStyle(
+                        color: !activeOnRight
+                            ? Colors.white
+                            : theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: widget.recurringMode
+                      ? null
+                      : () => setState(() {
+                            _type = 'income';
+                            _budgetTargetId = '';
+                          }),
+                  child: Center(
+                    child: Text(
+                      'دخل',
+                      style: TextStyle(
+                        color: activeOnRight
+                            ? Colors.white
+                            : theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -744,10 +857,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
                     title: Text(wallet.name),
-                    subtitle:
-                        Text('الرصيد: ${wallet.balance.toStringAsFixed(2)}'),
+                    subtitle: Text(
+                        'الرصيد: ${wallet.balance.toStringAsFixed(2)}'),
                     trailing: _walletId == wallet.id
-                        ? Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary)
+                        ? Icon(Icons.check_circle,
+                            color: Theme.of(context).colorScheme.primary)
                         : null,
                     onTap: () {
                       setState(() => _walletId = wallet.id);
@@ -762,8 +876,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     );
   }
 
-  void _openAllocationPicker(
-      List<DropdownMenuItem<String>> allocationItems, BudgetSetupEntity budget) {
+  void _openAllocationPicker(List<DropdownMenuItem<String>> allocationItems,
+      BudgetSetupEntity budget) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -792,7 +906,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     ],
                   ),
                   trailing: _budgetTargetId == id
-                      ? Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary)
+                      ? Icon(Icons.check_circle,
+                          color: Theme.of(context).colorScheme.primary)
                       : null,
                   onTap: () {
                     setState(() => _budgetTargetId = id);
@@ -802,9 +917,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               );
             }
             if (id.startsWith('jar:')) {
-              final jar = budget.linkedWallets
-                  .firstWhere((j) => 'jar:${j.id}' == id);
-              final ratio = (jar.balance / (budget.totalIncome <= 0 ? 1 : budget.totalIncome))
+              final jar =
+                  budget.linkedWallets.firstWhere((j) => 'jar:${j.id}' == id);
+              final ratio = (jar.balance /
+                      (budget.totalIncome <= 0 ? 1 : budget.totalIncome))
                   .clamp(0.0, 1.0);
               return Card(
                 margin: const EdgeInsets.only(bottom: 10),
@@ -813,13 +929,16 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('الرصيد: ${jar.balance.toStringAsFixed(2)}'),
+                      Text(
+                          'الرصيد: ${jar.balance.toStringAsFixed(2)}'),
                       const SizedBox(height: 6),
-                      LinearProgressIndicator(value: ratio.toDouble(), minHeight: 8),
+                      LinearProgressIndicator(
+                          value: ratio.toDouble(), minHeight: 8),
                     ],
                   ),
                   trailing: _budgetTargetId == id
-                      ? Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary)
+                      ? Icon(Icons.check_circle,
+                          color: Theme.of(context).colorScheme.primary)
                       : null,
                   onTap: () {
                     setState(() => _budgetTargetId = id);
@@ -828,7 +947,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 ),
               );
             }
-            final allocation = budget.allocations.firstWhere((a) => 'alloc:${a.id}' == id);
+            final allocation =
+                budget.allocations.firstWhere((a) => 'alloc:${a.id}' == id);
             final planned = allocation.funding
                 .fold<double>(0, (s, f) => s + f.plannedAmount);
             final ratio =
@@ -849,7 +969,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   ],
                 ),
                 trailing: _budgetTargetId == id
-                    ? Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary)
+                    ? Icon(Icons.check_circle,
+                        color: Theme.of(context).colorScheme.primary)
                     : null,
                 onTap: () {
                   setState(() => _budgetTargetId = id);
@@ -878,7 +999,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
                     title: Text(jar.name),
-                    subtitle: Text('الرصيد: ${jar.balance.toStringAsFixed(2)}'),
+                    subtitle: Text(
+                        'الرصيد: ${jar.balance.toStringAsFixed(2)}'),
                     trailing: _incomeJarId == jar.id
                         ? Icon(
                             Icons.check_circle,
@@ -909,8 +1031,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         Row(
           children: [
             Expanded(
-                child: Text(title,
-                    style: const TextStyle(fontWeight: FontWeight.w700))),
+              child: Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
             TextButton.icon(
               onPressed: onAdd,
               icon: const Icon(Icons.add, size: 16),
@@ -927,47 +1052,52 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               borderRadius: BorderRadius.circular(14),
               color: Theme.of(context).colorScheme.surface,
             ),
-            child: const Text('لا توجد فئات حتى الآن لهذا الجزء.'),
+            child: const Text(
+                'لا توجد فئات حتى الآن لهذا الجزء.'),
           )
         else
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: categories
-                .map(
-                  (c) => Container(
-                    width: 140,
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: _parseColor(c.color).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            color: _parseColor(c.color),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.category,
-                              color: Colors.white, size: 16),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            c.name,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                      ],
-                    ),
+          SizedBox(
+            height: 52,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: categories.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final c = categories[index];
+                return Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _parseColor(c.color).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                )
-                .toList(),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: _parseColor(c.color),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          AppIconPickerDialog.iconDataForName(c.icon),
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        c.name,
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
       ],
     );
@@ -980,19 +1110,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     required List<CategoryEntity> existing,
   }) async {
     _newCategoryController.clear();
-    var family = 'food';
-    var selectedIcon = 'UtensilsCrossed';
+    var selectedIcon = 'restaurant';
     var selectedColor = '#165b47';
 
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialog) {
-          final visibleIcons = _icons.where((item) => item.$2 == family).toList();
           return AlertDialog(
             title: const Text('إضافة فئة'),
             content: SizedBox(
-              width: 560,
+              width: 500,
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1002,99 +1130,30 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     const SizedBox(height: 6),
                     TextField(
                       controller: _newCategoryController,
-                      decoration: const InputDecoration(hintText: 'اكتب اسم الفئة'),
+                      decoration: const InputDecoration(
+                          hintText: 'اكتب اسم الفئة'),
                       onChanged: (_) => setDialog(() {}),
                     ),
                     const SizedBox(height: 14),
-                    const Text('مجال الأيقونة'),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: _families.map((f) {
-                        final active = family == f.$1;
-                        return ChoiceChip(
-                          label: Text(f.$2),
-                          selected: active,
-                          onSelected: (_) {
-                            setDialog(() {
-                              family = f.$1;
-                              selectedIcon = _icons.firstWhere((icon) => icon.$2 == family).$1;
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 14),
-                    const Text('الأيقونات المتاحة'),
-                    const SizedBox(height: 6),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: visibleIcons.length,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 8,
-                        crossAxisSpacing: 8,
-                        childAspectRatio: 2.8,
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final picked = await AppIconPickerDialog.show(
+                            context,
+                            initialIconName: selectedIcon,
+                            initialColorHex: selectedColor,
+                            title: 'اختيار أيقونة الفئة',
+                          );
+                          if (picked == null) return;
+                          setDialog(() {
+                            selectedIcon = picked.iconName;
+                            selectedColor = picked.colorHex;
+                          });
+                        },
+                        icon: const Icon(Icons.palette_outlined),
+                        label: const Text('اختيار الأيقونة واللون'),
                       ),
-                      itemBuilder: (context, index) {
-                        final item = visibleIcons[index];
-                        final active = selectedIcon == item.$1;
-                        return InkWell(
-                          onTap: () => setDialog(() => selectedIcon = item.$1),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              color: active ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1) : Theme.of(context).colorScheme.surface,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  width: 28,
-                                  height: 28,
-                                  decoration: BoxDecoration(
-                                    color: active ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(item.$4, color: Colors.white, size: 16),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(item.$3, style: const TextStyle(fontSize: 12)),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    const Text('لون الخلفية'),
-                    const SizedBox(height: 6),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _colors.length,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 5,
-                        mainAxisSpacing: 8,
-                        crossAxisSpacing: 8,
-                        childAspectRatio: 1,
-                      ),
-                      itemBuilder: (context, index) {
-                        final item = _colors[index];
-                        return InkWell(
-                          onTap: () => setDialog(() => selectedColor = item),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: _parseColor(item),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        );
-                      },
                     ),
                     const SizedBox(height: 14),
                     Container(
@@ -1112,7 +1171,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                               color: _parseColor(selectedColor),
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            child: Icon(_iconForName(selectedIcon), color: Colors.white),
+                            child: Icon(_iconForName(selectedIcon),
+                                color: Colors.white),
                           ),
                           const SizedBox(width: 8),
                           Text(_newCategoryController.text.isEmpty
@@ -1182,8 +1242,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   }
 
   IconData _iconForName(String icon) {
-    final entry = _icons.where((item) => item.$1 == icon).toList();
-    return entry.isNotEmpty ? entry.first.$4 : Icons.category;
+    return AppIconPickerDialog.iconDataForName(icon);
   }
 
   void _showValidationError(String message) {

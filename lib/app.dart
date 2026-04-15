@@ -18,8 +18,8 @@ import 'features/transactions/presentation/screens/add_transaction_screen.dart';
 import 'features/transactions/presentation/screens/recurring_transactions_screen.dart';
 import 'features/wallets/presentation/screens/wallets_screen.dart';
 
-class KorassaApp extends StatelessWidget {
-  const KorassaApp({
+class MezanyaApp extends StatelessWidget {
+  const MezanyaApp({
     super.key,
     required this.cubit,
   });
@@ -30,7 +30,7 @@ class KorassaApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Korassa',
+      title: 'Mezanya',
       locale: const Locale('ar'),
       supportedLocales: const [
         Locale('ar'),
@@ -117,9 +117,15 @@ class _MainLayoutState extends State<MainLayout> {
               titleSpacing: 12,
               title: Row(
                 children: [
-                  const CircleAvatar(
-                    radius: 14,
-                    child: Icon(Icons.insights_rounded, size: 16),
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor:
+                        Theme.of(context).colorScheme.secondaryContainer,
+                    child: Icon(
+                      Icons.insights_rounded,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   const Text('الميزانية'),
@@ -164,15 +170,25 @@ class _MainLayoutState extends State<MainLayout> {
           padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: const Color(0xFFF5F4EF), // surface-container-low
-              borderRadius: BorderRadius.circular(28),
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
+                  Theme.of(context)
+                      .colorScheme
+                      .secondaryContainer
+                      .withValues(alpha: 0.72),
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: BorderRadius.circular(30),
               border: Border.all(
                   color: Theme.of(context).colorScheme.outlineVariant),
               boxShadow: const [
                 BoxShadow(
                   blurRadius: 40,
                   offset: Offset(0, 12),
-                  color: Color(0x0F31332F), // Ambient shadow
+                  color: Color(0x1431332F),
                 ),
               ],
             ),
@@ -221,8 +237,8 @@ class _MoreTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = cubit.state;
     final userName =
-        state.userName.trim().isEmpty ? 'مستخدم كراسة' : state.userName.trim();
-    final userInitial = userName.isNotEmpty ? userName.characters.first : 'ك';
+        state.userName.trim().isEmpty ? 'مستخدم ميزانية' : state.userName.trim();
+    final userInitial = userName.isNotEmpty ? userName.characters.first : 'م';
 
     const items = <MapEntry<String, String>>[
       MapEntry('إعداد الميزانية', 'budget-setup'),
@@ -280,20 +296,6 @@ class _MoreTab extends StatelessWidget {
                     ],
                   ),
                 ),
-                // IconButton(
-                //   tooltip: 'تعديل بيانات الحساب',
-                //   icon: const Icon(Icons.edit_outlined),
-                //   onPressed: () {
-                //     Navigator.of(context).push(
-                //       MaterialPageRoute(
-                //         builder: (_) => Scaffold(
-                //           appBar: AppBar(title: const Text('إعدادات التطبيق')),
-                //           body: AppSettingsScreen(cubit: cubit),
-                //         ),
-                //       ),
-                //     );
-                //   },
-                // ),
               ],
             ),
           ),

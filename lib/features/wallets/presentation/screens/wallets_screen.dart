@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/widgets/app_icon_picker_dialog.dart';
 import '../../../app_state/domain/entities/app_state_entity.dart';
 import '../../../app_state/presentation/cubits/app_cubit.dart';
 import '../../../budget/domain/entities/budget_setup_entity.dart';
@@ -16,34 +17,6 @@ class WalletsScreen extends StatefulWidget {
 }
 
 class _WalletsScreenState extends State<WalletsScreen> {
-  static const _walletIcons = <IconData>[
-    Icons.account_balance_wallet,
-    Icons.credit_card,
-    Icons.account_balance,
-    Icons.payments,
-    Icons.savings,
-    Icons.receipt_long,
-    Icons.currency_exchange,
-    Icons.attach_money,
-    Icons.point_of_sale,
-    Icons.business_center,
-    Icons.money,
-    Icons.wallet_membership,
-  ];
-
-  static const _colors = <String>[
-    '#165b47',
-    '#0f766e',
-    '#2563eb',
-    '#7c3aed',
-    '#c2410c',
-    '#dc2626',
-    '#d97706',
-    '#0f172a',
-    '#be185d',
-    '#334155',
-  ];
-
   @override
   Widget build(BuildContext context) {
     final state = widget.cubit.state;
@@ -147,7 +120,7 @@ class _WalletsScreenState extends State<WalletsScreen> {
   }
 
   Widget _iconBubble({required String iconName, required String colorHex}) {
-    final icon = _iconFromName(iconName);
+    final icon = AppIconPickerDialog.iconDataForName(iconName);
     return Container(
       width: 40,
       height: 40,
@@ -836,8 +809,8 @@ class _WalletsScreenState extends State<WalletsScreen> {
     final nameController = TextEditingController(text: current?.name ?? '');
     final balanceController =
         TextEditingController(text: (current?.balance ?? 0).toStringAsFixed(0));
-    String selectedColor = current?.iconColor ?? _colors.first;
-    String selectedIcon = current?.icon ?? 'account_balance_wallet';
+    String selectedColor = current?.iconColor ?? '#165b47';
+    String selectedIcon = current?.icon ?? 'wallet';
 
     showDialog<void>(
       context: context,
@@ -861,12 +834,25 @@ class _WalletsScreenState extends State<WalletsScreen> {
                     decoration: const InputDecoration(labelText: 'الفلوس'),
                   ),
                   const SizedBox(height: 10),
-                  _iconSelector(
-                    context,
-                    selectedIcon: selectedIcon,
-                    selectedColor: selectedColor,
-                    onIcon: (v) => setDialog(() => selectedIcon = v),
-                    onColor: (v) => setDialog(() => selectedColor = v),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final picked = await AppIconPickerDialog.show(
+                          context,
+                          initialIconName: selectedIcon,
+                          initialColorHex: selectedColor,
+                          title: 'اختيار أيقونة المحفظة',
+                        );
+                        if (picked == null) return;
+                        setDialog(() {
+                          selectedIcon = picked.iconName;
+                          selectedColor = picked.colorHex;
+                        });
+                      },
+                      icon: const Icon(Icons.palette_outlined),
+                      label: const Text('اختيار الأيقونة واللون'),
+                    ),
                   ),
                 ],
               ),
@@ -963,12 +949,25 @@ class _WalletsScreenState extends State<WalletsScreen> {
                     decoration: const InputDecoration(labelText: 'الرصيد'),
                   ),
                   const SizedBox(height: 10),
-                  _iconSelector(
-                    context,
-                    selectedIcon: selectedIcon,
-                    selectedColor: selectedColor,
-                    onIcon: (v) => setDialog(() => selectedIcon = v),
-                    onColor: (v) => setDialog(() => selectedColor = v),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final picked = await AppIconPickerDialog.show(
+                          context,
+                          initialIconName: selectedIcon,
+                          initialColorHex: selectedColor,
+                          title: 'اختيار أيقونة الحصالة',
+                        );
+                        if (picked == null) return;
+                        setDialog(() {
+                          selectedIcon = picked.iconName;
+                          selectedColor = picked.colorHex;
+                        });
+                      },
+                      icon: const Icon(Icons.palette_outlined),
+                      label: const Text('اختيار الأيقونة واللون'),
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Row(
@@ -1140,126 +1139,6 @@ class _WalletsScreenState extends State<WalletsScreen> {
         ),
       ),
     );
-  }
-
-  Widget _iconSelector(
-    BuildContext context, {
-    required String selectedIcon,
-    required String selectedColor,
-    required ValueChanged<String> onIcon,
-    required ValueChanged<String> onColor,
-  }) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('اختيار الأيقونة'),
-        const SizedBox(height: 6),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _walletIcons.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 6,
-            mainAxisSpacing: 6,
-            crossAxisSpacing: 6,
-            childAspectRatio: 1.2,
-          ),
-          itemBuilder: (context, index) {
-            final icon = _walletIcons[index];
-            final name = _iconName(icon);
-            final active = selectedIcon == name;
-            return InkWell(
-              onTap: () => onIcon(name),
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: active
-                      ? theme.colorScheme.primary.withValues(alpha: 0.1)
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.05),
-                  border: Border.all(
-                      color: active
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurface.withValues(alpha: 0.1)),
-                ),
-                child: Icon(icon,
-                    color: active
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                    size: 20),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-        const Text('الألوان'),
-        const SizedBox(height: 6),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _colors.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 6,
-            mainAxisSpacing: 6,
-            crossAxisSpacing: 6,
-            childAspectRatio: 1,
-          ),
-          itemBuilder: (context, index) {
-            final c = _colors[index];
-            final active = selectedColor == c;
-            return InkWell(
-              onTap: () => onColor(c),
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: _parseColor(c),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                      color: active
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurface.withValues(alpha: 0.1),
-                      width: active ? 2 : 1),
-                ),
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  IconData _iconFromName(String name) {
-    return {
-          'account_balance_wallet': Icons.account_balance_wallet,
-          'credit_card': Icons.credit_card,
-          'account_balance': Icons.account_balance,
-          'payments': Icons.payments,
-          'savings': Icons.savings,
-          'receipt_long': Icons.receipt_long,
-          'currency_exchange': Icons.currency_exchange,
-          'attach_money': Icons.attach_money,
-          'point_of_sale': Icons.point_of_sale,
-          'business_center': Icons.business_center,
-          'money': Icons.money,
-          'wallet_membership': Icons.wallet_membership,
-        }[name] ??
-        Icons.account_balance_wallet;
-  }
-
-  String _iconName(IconData icon) {
-    if (icon == Icons.credit_card) return 'credit_card';
-    if (icon == Icons.account_balance) return 'account_balance';
-    if (icon == Icons.payments) return 'payments';
-    if (icon == Icons.savings) return 'savings';
-    if (icon == Icons.receipt_long) return 'receipt_long';
-    if (icon == Icons.currency_exchange) return 'currency_exchange';
-    if (icon == Icons.attach_money) return 'attach_money';
-    if (icon == Icons.point_of_sale) return 'point_of_sale';
-    if (icon == Icons.business_center) return 'business_center';
-    if (icon == Icons.money) return 'money';
-    if (icon == Icons.wallet_membership) return 'wallet_membership';
-    return 'account_balance_wallet';
   }
 
   Color _parseColor(String hex) {

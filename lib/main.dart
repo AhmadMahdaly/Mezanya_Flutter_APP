@@ -6,5 +6,5 @@ import 'core/di/bootstrap.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final cubit = await AppBootstrap.initialize();
-  runApp(KorassaApp(cubit: cubit));
+  runApp(MezanyaApp(cubit: cubit));
 }

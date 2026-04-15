@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 
 class AppTheme {
   static ThemeData tactileManuscript() {
-    const primary = Color(0xFF1C6D25);
-    const primaryDim = Color(0xFF096119);
-    const bgWarmPaper = Color(0xFFFBF9F5);
-    const surfaceCLow = Color(0xFFF5F4EF);
-    const surfaceC = Color(0xFFEFEEE9);
-    const surfaceCLowest = Color(0xFFFFFFFF);
-    const textDark = Color(0xFF31332F);
-    const textSoft = Color(0xFF767873);
-    const secContainer = Color(0xFFCBE7F5);
-    const terContainer = Color(0xFFFEB64C);
+    const primary = Color(0xFF059669); // Emerald Green
+    const primaryDim = Color(0xFF047857);
+    const bgWarmPaper = Color(0xFFF9FAFB); // Modern Light Gray
+    const surfaceCLow = Color(0xFFF3F4F6);
+    const surfaceC = Color(0xFFE5E7EB);
+    const surfaceCLowest = Color(0xFFFFFFFF); // Pure White Cards
+    const textDark = Color(0xFF111827);
+    const textSoft = Color(0xFF6B7280);
+    const secContainer = Color(0xFFD1FAE5); // Mint Green
+    const terContainer = Color(0xFFDBEAFE); // Light Blue
 
     final scheme = ColorScheme.fromSeed(
       seedColor: primary,
@@ -57,32 +57,31 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         color: surfaceCLowest,
-        elevation:
-            0, // We rely on shadowColor and explicit decoration in UI, or set elevation to 4 with diffused shadow
+        elevation: 0,
         shadowColor: textDark.withValues(alpha: 0.06),
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(28),
           side: BorderSide(color: scheme.outlineVariant, width: 1),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: surfaceCLowest,
+        fillColor: surfaceCLow,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         labelStyle: TextStyle(color: textDark.withValues(alpha: 0.6)),
         hintStyle: TextStyle(color: textDark.withValues(alpha: 0.4)),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           borderSide: const BorderSide(color: primary, width: 2),
         ),
       ),
@@ -90,23 +89,39 @@ class AppTheme {
         style: FilledButton.styleFrom(
           backgroundColor: primary,
           foregroundColor: Colors.white,
-          minimumSize: const Size(0, 48),
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          minimumSize: const Size(0, 54),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           elevation: 0,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size(0, 48),
+          minimumSize: const Size(0, 52),
           foregroundColor: textDark,
           side: BorderSide(color: scheme.outlineVariant, width: 1),
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           textStyle: const TextStyle(fontWeight: FontWeight.w600),
         ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: surfaceCLow,
+        selectedColor: secContainer,
+        disabledColor: surfaceC,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        labelStyle: const TextStyle(
+          color: textDark,
+          fontWeight: FontWeight.w600,
+        ),
+        secondaryLabelStyle: const TextStyle(
+          color: primary,
+          fontWeight: FontWeight.w700,
+        ),
+        side: BorderSide(color: scheme.outlineVariant),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       ),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
@@ -134,8 +149,7 @@ class AppTheme {
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor:
-            surfaceCLow.withValues(alpha: 0.8), // Glassmorphism base
+        backgroundColor: surfaceCLow.withValues(alpha: 0.82),
         surfaceTintColor: surfaceC,
         indicatorColor: secContainer,
         iconTheme: WidgetStateProperty.resolveWith((states) {
@@ -157,14 +171,14 @@ class AppTheme {
         }),
       ),
       fontFamily: 'IBM Plex Sans Arabic',
-      primaryColor: const Color(0xFF1C6D25),
+      primaryColor: const Color(0xFF059669),
 
       visualDensity: VisualDensity.adaptivePlatformDensity,
 
       /// ستايل الزر الرئيسي (ElevatedButton)
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF1C6D25),
+          backgroundColor: const Color(0xFF059669),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -178,7 +192,6 @@ class AppTheme {
       /// ستايل الزر الثانوي (TextButton)
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          // foregroundColor: AppColors.textGreyColor,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -187,7 +200,7 @@ class AppTheme {
             fontFamily: 'IBM Plex Sans Arabic',
           ),
         ),
-      ), // Fallback sans-serif mimicking the neutral editorial tone since Plus Jakarta isn't bundled
+      ),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/widgets/app_icon_picker_dialog.dart';
 import '../../../app_state/domain/entities/app_state_entity.dart';
 import '../../../app_state/presentation/cubits/app_cubit.dart';
 import 'add_transaction_screen.dart';
@@ -93,6 +94,19 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
         .map(
           (record) => Card(
             child: ListTile(
+              leading: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: _parseColor(record.iconColor),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  AppIconPickerDialog.iconDataForName(record.icon),
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
               title: Text(record.name),
               subtitle: Text(
                 '${_recurrenceLabel(record)} - ${record.executionType == 'auto' ? 'تلقائي' : record.executionType == 'confirm' ? 'تأكيد' : 'يدوي'}',
@@ -191,6 +205,11 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
       default:
         return 'غير محدد';
     }
+  }
+
+  Color _parseColor(String hex) {
+    final value = int.parse(hex.replaceFirst('#', ''), radix: 16);
+    return Color(0xFF000000 | value);
   }
 
   Future<void> _openRecurringComposer({

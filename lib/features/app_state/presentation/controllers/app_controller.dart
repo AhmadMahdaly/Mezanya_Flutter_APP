@@ -139,6 +139,8 @@ class AppController extends ChangeNotifier {
             ? AllocationEntity(
                 id: item.id,
                 name: item.name,
+                icon: item.icon,
+                iconColor: item.iconColor,
                 rolloverBehavior: item.rolloverBehavior,
                 funding: item.funding,
                 categories: categories,

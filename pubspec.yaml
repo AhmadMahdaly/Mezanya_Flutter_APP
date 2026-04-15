@@ -26,6 +26,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.2
+  rename: ^3.1.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
@@ -36,3 +38,8 @@ flutter:
         - asset: assets/fonts/IBMPlexSansArabic-Regular.ttf
         - asset: assets/fonts/IBMPlexSansArabic-Medium.ttf
         - asset: assets/fonts/IBMPlexSansArabic-Bold.ttf
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon.png"

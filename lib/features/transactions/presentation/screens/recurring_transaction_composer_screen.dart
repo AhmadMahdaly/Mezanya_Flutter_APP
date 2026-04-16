@@ -480,3 +480,463 @@ class _RecurringTransactionComposerScreenState
       child: child,
     );
   }
+
+  Widget _budgetTargetSection(BudgetSetupEntity budget) {
+    return _surfaceSection(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'المخصصات والحصالات',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 10),
+          RadioListTile<bool>(
+            value: true,
+            groupValue: _isDebtOrSubscription,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('معاملة دين أو اشتراك'),
+            subtitle: const Text('لن تُحسب من أي مخصص وستظهر ضمن الديون والاشتراكات'),
+            onChanged: (value) {
+              setState(() {
+                _isDebtOrSubscription = true;
+                _allocationId = null;
+                _targetJarId = null;
+              });
+            },
+          ),
+          const Divider(height: 24),
+          const Text('المخصصات', style: TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          ...budget.allocations.map(
+            (allocation) => RadioListTile<String>(
+              value: allocation.id,
+              groupValue: !_isDebtOrSubscription && _targetJarId == null
+                  ? _allocationId
+                  : null,
+              contentPadding: EdgeInsets.zero,
+              title: Text(allocation.name),
+              onChanged: (value) {
+                setState(() {
+                  _isDebtOrSubscription = false;
+                  _allocationId = value;
+                  _targetJarId = null;
+                });
+              },
+            ),
+          ),
+          const Divider(height: 24),
+          const Text('الحصالات', style: TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          ...budget.linkedWallets.map(
+            (jar) => RadioListTile<String>(
+              value: jar.id,
+              groupValue: !_isDebtOrSubscription && _allocationId == null
+                  ? _targetJarId
+                  : null,
+              contentPadding: EdgeInsets.zero,
+              title: Text(jar.name),
+              onChanged: (value) {
+                setState(() {
+                  _isDebtOrSubscription = false;
+                  _targetJarId = value;
+                  _allocationId = null;
+                });
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _categorySection(List<CategoryEntity> categories) {
+    return _surfaceSection(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('الفئات', style: TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 10),
+          if (categories.isEmpty)
+            const Text('لا توجد فئات متاحة لهذا النوع حاليًا')
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: categories
+                  .map(
+                    (category) => FilterChip(
+                      selected: _selectedCategoryIds.contains(category.id),
+                      label: Text(category.name),
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedCategoryIds.add(category.id);
+                          } else {
+                            _selectedCategoryIds.remove(category.id);
+                          }
+                        });
+                      },
+                    ),
+                  )
+                  .toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _recurrenceDetails() {
+    if (_recurrencePattern == 'daily') {
+      return _timeTile();
+    }
+    if (_isWeekPattern) {
+      return Column(
+        children: [
+          _weekdayPicker(),
+          const SizedBox(height: 12),
+          _timeTile(),
+        ],
+      );
+    }
+    if (_isMonthPattern) {
+      return Column(
+        children: [
+          DropdownButtonFormField<int>(
+            value: _monthlyDay,
+            decoration: const InputDecoration(
+              labelText: 'اليوم الشهري',
+              prefixIcon: Icon(Icons.calendar_today_rounded),
+            ),
+            items: List.generate(
+              28,
+              (index) => DropdownMenuItem(
+                value: index + 1,
+                child: Text('${index + 1}'),
+              ),
+            ),
+            onChanged: (value) {
+              if (value != null) {
+                setState(() => _monthlyDay = value);
+              }
+            },
+          ),
+          const SizedBox(height: 12),
+          _timeTile(),
+        ],
+      );
+    }
+    if (_recurrencePattern == 'yearly') {
+      return Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  value: _yearlyMonth,
+                  decoration: const InputDecoration(
+                    labelText: 'الشهر',
+                    prefixIcon: Icon(Icons.date_range_rounded),
+                  ),
+                  items: List.generate(
+                    12,
+                    (index) => DropdownMenuItem(
+                      value: index + 1,
+                      child: Text(_monthLabel(index + 1)),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _yearlyMonth = value);
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  value: _yearlyDay,
+                  decoration: const InputDecoration(
+                    labelText: 'اليوم',
+                    prefixIcon: Icon(Icons.calendar_month_rounded),
+                  ),
+                  items: List.generate(
+                    28,
+                    (index) => DropdownMenuItem(
+                      value: index + 1,
+                      child: Text('${index + 1}'),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _yearlyDay = value);
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _timeTile(),
+        ],
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _weekdayPicker() {
+    return _surfaceSection(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('أيام التكرار', style: TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: List.generate(7, (index) {
+              final weekday = index + 1;
+              return FilterChip(
+                selected: _selectedWeekdays.contains(weekday),
+                label: Text(_weekdayLabel(weekday)),
+                onSelected: (selected) {
+                  setState(() {
+                    if (selected) {
+                      _selectedWeekdays.add(weekday);
+                    } else {
+                      _selectedWeekdays.remove(weekday);
+                    }
+                  });
+                },
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _timeTile() {
+    final label = _formatTime(_selectedTime);
+    return _surfaceSection(
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.schedule_rounded),
+        title: const Text('الوقت'),
+        subtitle: Text(label),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: () async {
+          final picked = await showTimePicker(
+            context: context,
+            initialTime: _selectedTime,
+          );
+          if (picked != null) {
+            setState(() => _selectedTime = picked);
+          }
+        },
+      ),
+    );
+  }
+
+  List<CategoryEntity> _visibleCategories(
+    List<CategoryEntity> allCategories,
+    BudgetSetupEntity budget,
+  ) {
+    if (_type == 'expense' && _withinBudget) {
+      if (_allocationId != null) {
+        final allocation =
+            budget.allocations.where((item) => item.id == _allocationId);
+        if (allocation.isNotEmpty) {
+          return allocation.first.categories;
+        }
+      }
+      if (_targetJarId != null) {
+        final jar = budget.linkedWallets.where((item) => item.id == _targetJarId);
+        if (jar.isNotEmpty) {
+          return jar.first.categories;
+        }
+      }
+    }
+    return allCategories.where((category) => category.scope == _type).toList();
+  }
+
+  Future<void> _pickIcon() async {
+    final picked = await AppIconPickerDialog.show(
+      context,
+      initialIconName: _iconName,
+      initialColorHex: _iconColor,
+      title: 'اختيار أيقونة المعاملة',
+    );
+    if (picked == null) return;
+    setState(() {
+      _iconName = picked.iconName;
+      _iconColor = picked.colorHex;
+    });
+  }
+
+  Future<void> _save() async {
+    setState(() => _isSaving = true);
+    final amount = double.tryParse(_amountController.text.trim()) ?? 0;
+    final effectivePattern =
+        _type == 'income' && _withinBudget && _isVariableIncome
+            ? 'manual-variable'
+            : _recurrencePattern;
+    final effectiveExecutionType =
+        _type == 'income' && _withinBudget && _isVariableIncome
+            ? 'manual'
+            : _executionType;
+    final recurring = RecurringTransactionEntity(
+      id: widget.initialRecurring?.id ?? '',
+      name: _nameController.text.trim(),
+      type: _type,
+      amount: _showAmount ? amount : 0,
+      dayOfMonth: _recurrencePattern == 'yearly'
+          ? _yearlyDay
+          : _isMonthPattern
+              ? _monthlyDay
+              : 1,
+      executionType: effectiveExecutionType,
+      walletId: _walletId,
+      budgetScope: _withinBudget ? 'within-budget' : 'outside-budget',
+      recurrencePattern: effectivePattern,
+      icon: _iconName,
+      iconColor: _iconColor,
+      weekday: _selectedWeekdays.isEmpty ? null : _selectedWeekdays.first,
+      weekdays: _selectedWeekdays.toList()..sort(),
+      monthOfYear: _recurrencePattern == 'yearly' ? _yearlyMonth : null,
+      scheduledTime: _showRecurrenceDetails ? _formatTime(_selectedTime) : null,
+      reminderLeadDays:
+          effectiveExecutionType == 'confirm' ? _reminderLeadDays : null,
+      allocationId: _type == 'expense' && _withinBudget && !_isDebtOrSubscription
+          ? _allocationId
+          : null,
+      targetJarId: _type == 'expense' && _withinBudget && !_isDebtOrSubscription
+          ? _targetJarId
+          : null,
+      incomeSourceId: widget.initialRecurring?.incomeSourceId,
+      categoryIds: _selectedCategoryIds.toList(),
+      isVariableIncome: _isVariableIncome,
+      isDebtOrSubscription:
+          _type == 'expense' && _withinBudget && _isDebtOrSubscription,
+      notes: _notesController.text.trim().isEmpty
+          ? null
+          : _notesController.text.trim(),
+    );
+
+    if (widget.initialRecurring == null) {
+      await widget.cubit.addRecurringTransaction(
+        name: recurring.name,
+        type: recurring.type,
+        amount: recurring.amount,
+        dayOfMonth: recurring.dayOfMonth,
+        executionType: recurring.executionType,
+        walletId: recurring.walletId,
+        budgetScope: recurring.budgetScope,
+        recurrencePattern: recurring.recurrencePattern,
+        icon: recurring.icon,
+        iconColor: recurring.iconColor,
+        weekday: recurring.weekday,
+        weekdays: recurring.weekdays,
+        monthOfYear: recurring.monthOfYear,
+        scheduledTime: recurring.scheduledTime,
+        reminderLeadDays: recurring.reminderLeadDays,
+        allocationId: recurring.allocationId,
+        targetJarId: recurring.targetJarId,
+        incomeSourceId: recurring.incomeSourceId,
+        categoryIds: recurring.categoryIds,
+        isVariableIncome: recurring.isVariableIncome,
+        isDebtOrSubscription: recurring.isDebtOrSubscription,
+        notes: recurring.notes,
+      );
+    } else {
+      await widget.cubit.updateRecurringTransaction(
+        widget.initialRecurring!.copyWith(
+          name: recurring.name,
+          type: recurring.type,
+          amount: recurring.amount,
+          dayOfMonth: recurring.dayOfMonth,
+          executionType: recurring.executionType,
+          walletId: recurring.walletId,
+          budgetScope: recurring.budgetScope,
+          recurrencePattern: recurring.recurrencePattern,
+          icon: recurring.icon,
+          iconColor: recurring.iconColor,
+          weekday: recurring.weekday,
+          weekdays: recurring.weekdays,
+          monthOfYear: recurring.monthOfYear,
+          scheduledTime: recurring.scheduledTime,
+          reminderLeadDays: recurring.reminderLeadDays,
+          allocationId: recurring.allocationId,
+          targetJarId: recurring.targetJarId,
+          incomeSourceId: recurring.incomeSourceId,
+          categoryIds: recurring.categoryIds,
+          isVariableIncome: recurring.isVariableIncome,
+          isDebtOrSubscription: recurring.isDebtOrSubscription,
+          notes: recurring.notes,
+        ),
+      );
+    }
+
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
+  TimeOfDay _parseStoredTime(String? value) {
+    if (value == null || !value.contains(':')) {
+      return const TimeOfDay(hour: 9, minute: 0);
+    }
+    final parts = value.split(':');
+    final hour = int.tryParse(parts.first) ?? 9;
+    final minute = int.tryParse(parts.last) ?? 0;
+    return TimeOfDay(hour: hour.clamp(0, 23), minute: minute.clamp(0, 59));
+  }
+
+  String _formatTime(TimeOfDay time) {
+    final hh = time.hour.toString().padLeft(2, '0');
+    final mm = time.minute.toString().padLeft(2, '0');
+    return '$hh:$mm';
+  }
+
+  String _weekdayLabel(int weekday) {
+    switch (weekday) {
+      case 1:
+        return 'الإثنين';
+      case 2:
+        return 'الثلاثاء';
+      case 3:
+        return 'الأربعاء';
+      case 4:
+        return 'الخميس';
+      case 5:
+        return 'الجمعة';
+      case 6:
+        return 'السبت';
+      default:
+        return 'الأحد';
+    }
+  }
+
+  String _monthLabel(int month) {
+    const labels = <String>[
+      'يناير',
+      'فبراير',
+      'مارس',
+      'أبريل',
+      'مايو',
+      'يونيو',
+      'يوليو',
+      'أغسطس',
+      'سبتمبر',
+      'أكتوبر',
+      'نوفمبر',
+      'ديسمبر',
+    ];
+    return labels[month - 1];
+  }
+
+  Color _parseColor(String hex) {
+    final value = int.tryParse(hex.replaceFirst('#', ''), radix: 16) ??
+        0x165b47;
+    return Color(0xFF000000 | value);
+  }
+}

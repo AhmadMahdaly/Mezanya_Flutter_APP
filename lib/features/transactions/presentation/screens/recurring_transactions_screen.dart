@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../../../core/widgets/app_icon_picker_dialog.dart';
 import '../../../app_state/domain/entities/app_state_entity.dart';
 import '../../../app_state/presentation/cubits/app_cubit.dart';
-import 'add_transaction_screen.dart';
+import 'recurring_transaction_composer_screen.dart';
 import '../../domain/entities/recurring_transaction_entity.dart';
 
 class RecurringTransactionsScreen extends StatefulWidget {
@@ -42,7 +42,7 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
                 children: [
                   Expanded(
                     child: ChoiceChip(
-                      label: const Text('الدخل'),
+                      label: const Text('ط§ظ„ط¯ط®ظ„'),
                       selected: _tab == 'income',
                       onSelected: (_) => setState(() => _tab = 'income'),
                     ),
@@ -50,7 +50,7 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
                   const SizedBox(width: 8),
                   Expanded(
                     child: ChoiceChip(
-                      label: const Text('المصروف'),
+                      label: const Text('ط§ظ„ظ…طµط±ظˆظپ'),
                       selected: _tab == 'expense',
                       onSelected: (_) => setState(() => _tab = 'expense'),
                     ),
@@ -64,21 +64,21 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
               child: FilledButton.icon(
                 onPressed: () => _openRecurringComposer(mode: _tab),
                 icon: const Icon(Icons.add),
-                label: Text(_tab == 'income' ? 'إضافة دخل' : 'إضافة مصروف'),
+                label: Text(_tab == 'income' ? 'ط¥ط¶ط§ظپط© ط¯ط®ظ„' : 'ط¥ط¶ط§ظپط© ظ…طµط±ظˆظپ'),
               ),
             ),
             const SizedBox(height: 12),
-            _sectionTitle('معاملات متكررة بالميزانية'),
+            _sectionTitle('ظ…ط¹ط§ظ…ظ„ط§طھ ظ…طھظƒط±ط±ط© ط¨ط§ظ„ظ…ظٹط²ط§ظ†ظٹط©'),
             const SizedBox(height: 8),
             ..._recurringCards(inBudget),
             if (inBudget.isEmpty)
-              const Card(child: ListTile(title: Text('لا توجد معاملات في هذا القسم.'))),
+              const Card(child: ListTile(title: Text('ظ„ط§ طھظˆط¬ط¯ ظ…ط¹ط§ظ…ظ„ط§طھ ظپظٹ ظ‡ط°ط§ ط§ظ„ظ‚ط³ظ….'))),
             const SizedBox(height: 12),
-            _sectionTitle('معاملات خارج الميزانية'),
+            _sectionTitle('ظ…ط¹ط§ظ…ظ„ط§طھ ط®ط§ط±ط¬ ط§ظ„ظ…ظٹط²ط§ظ†ظٹط©'),
             const SizedBox(height: 8),
             ..._recurringCards(outBudget),
             if (outBudget.isEmpty)
-              const Card(child: ListTile(title: Text('لا توجد معاملات في هذا القسم.'))),
+              const Card(child: ListTile(title: Text('ظ„ط§ طھظˆط¬ط¯ ظ…ط¹ط§ظ…ظ„ط§طھ ظپظٹ ظ‡ط°ط§ ط§ظ„ظ‚ط³ظ….'))),
           ],
         );
       },
@@ -109,7 +109,7 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
               ),
               title: Text(record.name),
               subtitle: Text(
-                '${_recurrenceLabel(record)} - ${record.executionType == 'auto' ? 'تلقائي' : record.executionType == 'confirm' ? 'تأكيد' : 'يدوي'}',
+                '${_recurrenceLabel(record)} - ${record.executionType == 'auto' ? 'طھظ„ظ‚ط§ط¦ظٹ' : record.executionType == 'confirm' ? 'طھط£ظƒظٹط¯' : 'ظٹط¯ظˆظٹ'}',
               ),
               trailing: Text(record.amount.toStringAsFixed(2)),
               onTap: () => _openDetailsSheet(record),
@@ -130,25 +130,25 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
           children: [
             Text(record.name, style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
-            _row('النوع', record.type == 'income' ? 'دخل' : 'مصروف'),
-            _row('المبلغ', record.amount.toStringAsFixed(2)),
-            _row('التاريخ الدوري', 'يوم ${record.dayOfMonth} من كل شهر'),
+            _row('ط§ظ„ظ†ظˆط¹', record.type == 'income' ? 'ط¯ط®ظ„' : 'ظ…طµط±ظˆظپ'),
+            _row('ط§ظ„ظ…ط¨ظ„ط؛', record.amount.toStringAsFixed(2)),
+            _row('ط§ظ„طھط§ط±ظٹط® ط§ظ„ط¯ظˆط±ظٹ', _recurrenceLabel(record)),
             _row(
-              'التنفيذ',
+              'ط§ظ„طھظ†ظپظٹط°',
               record.executionType == 'auto'
-                  ? 'تلقائي'
+                  ? 'طھظ„ظ‚ط§ط¦ظٹ'
                   : record.executionType == 'confirm'
-                      ? 'يتطلب تأكيد'
-                      : 'يدوي',
+                      ? 'ظٹطھط·ظ„ط¨ طھط£ظƒظٹط¯'
+                      : 'ظٹط¯ظˆظٹ',
             ),
-            _row('الميزانية', record.budgetScope == 'within-budget' ? 'داخل الميزانية' : 'خارج الميزانية'),
-            if ((record.notes ?? '').trim().isNotEmpty) _row('ملاحظات', record.notes!.trim()),
+            _row('ط§ظ„ظ…ظٹط²ط§ظ†ظٹط©', record.budgetScope == 'within-budget' ? 'ط¯ط§ط®ظ„ ط§ظ„ظ…ظٹط²ط§ظ†ظٹط©' : 'ط®ط§ط±ط¬ ط§ظ„ظ…ظٹط²ط§ظ†ظٹط©'),
+            if ((record.notes ?? '').trim().isNotEmpty) _row('ظ…ظ„ط§ط­ط¸ط§طھ', record.notes!.trim()),
             const SizedBox(height: 16),
             Center(
               child: FilledButton.icon(
                 onPressed: () => _openRecurringComposer(mode: record.type, editing: record),
                 icon: const Icon(Icons.edit_outlined),
-                label: const Text('تعديل المعاملة'),
+                label: const Text('طھط¹ط¯ظٹظ„ ط§ظ„ظ…ط¹ط§ظ…ظ„ط©'),
               ),
             ),
           ],
@@ -168,28 +168,39 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
   }
 
   String _recurrenceLabel(RecurringTransactionEntity record) {
+    final timeSuffix =
+        (record.scheduledTime ?? '').isEmpty ? '' : ' - ${record.scheduledTime}';
+    final weekdayLabel = record.weekdays.isNotEmpty
+        ? record.weekdays.map(_weekdayName).join('، ')
+        : _weekdayName(record.weekday);
     switch (record.recurrencePattern) {
+      case 'daily':
+        return 'يومي$timeSuffix';
       case 'weekly':
-        return 'كل أسبوع (${_weekdayName(record.weekday)})';
+        return 'أسبوعي ($weekdayLabel)$timeSuffix';
       case 'biweekly':
-        return 'كل أسبوعين (${_weekdayName(record.weekday)})';
+        return 'كل أسبوعين ($weekdayLabel)$timeSuffix';
+      case 'every_3_weeks':
+        return 'كل 3 أسابيع ($weekdayLabel)$timeSuffix';
       case 'every_2_months':
-        return 'كل شهرين يوم ${record.dayOfMonth}';
+        return 'كل شهرين يوم ${record.dayOfMonth}$timeSuffix';
       case 'every_3_months':
-        return 'كل 3 شهور يوم ${record.dayOfMonth}';
+        return 'كل 3 شهور يوم ${record.dayOfMonth}$timeSuffix';
       case 'every_6_months':
-        return 'كل 6 شهور يوم ${record.dayOfMonth}';
+        return 'كل 6 شهور يوم ${record.dayOfMonth}$timeSuffix';
       case 'yearly':
-        return 'سنويًا يوم ${record.dayOfMonth}';
+        return 'سنوي ${record.dayOfMonth}/${record.monthOfYear ?? 1}$timeSuffix';
+      case 'manual-variable':
+        return 'دخل متغير يدوي';
       default:
-        return 'شهريًا يوم ${record.dayOfMonth}';
+        return 'شهري يوم ${record.dayOfMonth}$timeSuffix';
     }
   }
 
   String _weekdayName(int? day) {
     switch (day) {
       case 1:
-        return 'الاثنين';
+        return 'الإثنين';
       case 2:
         return 'الثلاثاء';
       case 3:
@@ -221,13 +232,13 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
       isScrollControlled: true,
       builder: (context) => FractionallySizedBox(
         heightFactor: 0.96,
-        child: AddTransactionScreen(
+        child: RecurringTransactionComposerScreen(
           cubit: widget.cubit,
-          recurringMode: true,
-          recurringType: mode,
+          initialType: mode,
           initialRecurring: editing,
         ),
       ),
     );
   }
 }
+

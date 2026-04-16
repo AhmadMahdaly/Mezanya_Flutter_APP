@@ -240,7 +240,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                               color: _parseColor(selectedColor),
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            child: Icon(_iconForName(selectedIcon), color: Colors.white),
+                            child: Center(
+                              child: AppIconPickerDialog.iconWidgetForName(
+                                selectedIcon,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 8),
                           Text(nameController.text.isEmpty ? 'اسم الفئة' : nameController.text),

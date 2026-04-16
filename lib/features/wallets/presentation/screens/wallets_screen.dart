@@ -120,14 +120,19 @@ class _WalletsScreenState extends State<WalletsScreen> {
   }
 
   Widget _iconBubble({required String iconName, required String colorHex}) {
-    final icon = AppIconPickerDialog.iconDataForName(iconName);
     return Container(
       width: 40,
       height: 40,
       decoration: BoxDecoration(
           color: _parseColor(colorHex),
           borderRadius: BorderRadius.circular(12)),
-      child: Icon(icon, color: Colors.white, size: 20),
+      child: Center(
+        child: AppIconPickerDialog.iconWidgetForName(
+          iconName,
+          color: Colors.white,
+          size: 20,
+        ),
+      ),
     );
   }
 

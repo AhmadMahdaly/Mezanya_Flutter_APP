@@ -1081,8 +1081,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                           color: _parseColor(c.color),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(
-                          AppIconPickerDialog.iconDataForName(c.icon),
+                        child: AppIconPickerDialog.iconWidgetForName(
+                          c.icon,
                           color: Colors.white,
                           size: 16,
                         ),
@@ -1171,8 +1171,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                               color: _parseColor(selectedColor),
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            child: Icon(_iconForName(selectedIcon),
-                                color: Colors.white),
+                            child: Center(
+                              child: AppIconPickerDialog.iconWidgetForName(
+                                selectedIcon,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 8),
                           Text(_newCategoryController.text.isEmpty
@@ -1239,10 +1243,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   Color _parseColor(String hex) {
     final value = int.parse(hex.replaceFirst('#', ''), radix: 16);
     return Color(0xFF000000 | value);
-  }
-
-  IconData _iconForName(String icon) {
-    return AppIconPickerDialog.iconDataForName(icon);
   }
 
   void _showValidationError(String message) {

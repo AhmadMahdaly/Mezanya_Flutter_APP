@@ -101,8 +101,8 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
                   color: _parseColor(record.iconColor),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  AppIconPickerDialog.iconDataForName(record.icon),
+                child: AppIconPickerDialog.iconWidgetForName(
+                  record.icon,
                   color: Colors.white,
                   size: 18,
                 ),

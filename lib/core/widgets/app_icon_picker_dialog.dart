@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -227,7 +227,11 @@ class AppIconPickerDialog extends StatefulWidget {
       ('monetization', 'أموال', Icons.monetization_on),
       ('pie_chart', 'نسبة', Icons.pie_chart),
       ('query_stats', 'إحصائيات', Icons.query_stats),
-      ('account_balance_wallet_outlined', 'حفظ فلوس', Icons.account_balance_wallet_outlined),
+      (
+        'account_balance_wallet_outlined',
+        'حفظ فلوس',
+        Icons.account_balance_wallet_outlined
+      ),
       ('payments_outlined', 'دفعات', Icons.payments_outlined),
       ('wallet_giftcard', 'بطاقة هدايا', Icons.card_giftcard),
       ('receipt_long_2', 'فواتير', Icons.receipt_long),
@@ -605,6 +609,7 @@ class _AppIconPickerDialogState extends State<AppIconPickerDialog> {
     final icons = AppIconPickerDialog.iconsForCategory(_selectedCategoryId);
     final theme = Theme.of(context);
     final colorHex = _colorToHex(_selectedColor);
+    const contentHeight = 320.0;
     final dialogWidth = math.min(
       720.0,
       MediaQuery.of(context).size.width - 32.0,
@@ -618,41 +623,42 @@ class _AppIconPickerDialogState extends State<AppIconPickerDialog> {
           children: [
             Row(
               children: [
-                Expanded(
-                  child: Text(widget.title, style: theme.textTheme.titleLarge),
-                ),
+                const Spacer(),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
             _topSegment(theme),
             const SizedBox(height: 12),
             if (_step == 0) ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      AppIconPickerDialog.categoryLabels[_selectedCategoryId] ??
-                          _selectedCategoryId,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
+              SizedBox(
+                height: 45,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        AppIconPickerDialog
+                                .categoryLabels[_selectedCategoryId] ??
+                            _selectedCategoryId,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  IconButton(
-                    tooltip: 'فلتر الكاتيجوري',
-                    onPressed: _openCategorySheet,
-                    icon: const Icon(Icons.filter_alt_outlined),
-                  ),
-                ],
+                    IconButton(
+                      tooltip: 'فلتر الكاتيجوري',
+                      onPressed: _openCategorySheet,
+                      icon: const Icon(Icons.filter_alt_outlined),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 8),
               Container(
-                height: 300,
+                height: contentHeight,
                 width: double.infinity,
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -670,7 +676,8 @@ class _AppIconPickerDialogState extends State<AppIconPickerDialog> {
                               .where((id) => id != 'all')
                               .expand((categoryId) {
                             final groupIcons =
-                                AppIconPickerDialog.iconsForCategory(categoryId);
+                                AppIconPickerDialog.iconsForCategory(
+                                    categoryId);
                             return [
                               SliverToBoxAdapter(
                                 child: Padding(
@@ -719,32 +726,31 @@ class _AppIconPickerDialogState extends State<AppIconPickerDialog> {
                                     return InkWell(
                                       onTap: () => setState(
                                           () => _selectedIconName = item.name),
-                                      borderRadius:
-                                          BorderRadius.circular(12),
+                                      borderRadius: BorderRadius.circular(12),
                                       child: Container(
                                         decoration: BoxDecoration(
-                                          color: theme
-                                              .colorScheme.surfaceContainerHighest
+                                          color: theme.colorScheme
+                                              .surfaceContainerHighest
                                               .withValues(alpha: 0.45),
                                           borderRadius:
                                               BorderRadius.circular(12),
                                           border: Border.all(
                                             color: active
                                                 ? theme.colorScheme.primary
-                                                : theme.colorScheme
-                                                    .outlineVariant
+                                                : theme
+                                                    .colorScheme.outlineVariant
                                                     .withValues(alpha: 0.5),
                                           ),
                                         ),
                                         child: Center(
-                                          child:
-                                              AppIconPickerDialog.iconWidgetForName(
+                                          child: AppIconPickerDialog
+                                              .iconWidgetForName(
                                             item.name,
                                             size: 24,
                                             color: active
                                                 ? theme.colorScheme.primary
-                                                : theme
-                                                    .colorScheme.onSurfaceVariant,
+                                                : theme.colorScheme
+                                                    .onSurfaceVariant,
                                           ),
                                         ),
                                       ),
@@ -782,8 +788,7 @@ class _AppIconPickerDialogState extends State<AppIconPickerDialog> {
                             borderRadius: BorderRadius.circular(12),
                             child: Container(
                               decoration: BoxDecoration(
-                                color: theme
-                                    .colorScheme.surfaceContainerHighest
+                                color: theme.colorScheme.surfaceContainerHighest
                                     .withValues(alpha: 0.45),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
@@ -807,75 +812,92 @@ class _AppIconPickerDialogState extends State<AppIconPickerDialog> {
                         },
                       ),
               ),
+              // const SizedBox(height: 12),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('إلغاء'),
+              Center(
+                child: FilledButton(
+                  onPressed: () => setState(() => _step = 1),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(180, 50),
                   ),
-                  const Spacer(),
-                  FilledButton(
-                    onPressed: () => setState(() => _step = 1),
-                    child: const Text('التالي'),
-                  ),
-                ],
+                  child: const Text('التالي'),
+                ),
               ),
             ] else ...[
-              _ColorWheel(
-                color: _selectedColor,
-                onChanged: (color) => setState(() => _selectedColor = color),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest
-                      .withValues(alpha: 0.28),
-                  borderRadius: BorderRadius.circular(14),
-                ),
+              SizedBox(
+                height: 45,
                 child: Row(
                   children: [
+                    Expanded(
+                      child: Text(
+                        'معاينة الأيقونة',
+                        textAlign: TextAlign.right,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
                     Container(
-                      width: 54,
-                      height: 54,
+                      width: 84,
+                      height: 84,
                       decoration: BoxDecoration(
                         color: _selectedColor,
-                        borderRadius: BorderRadius.circular(14),
+                        shape: BoxShape.circle,
                       ),
                       child: Center(
                         child: AppIconPickerDialog.iconWidgetForName(
                           _selectedIconName,
                           color: Colors.white,
-                          size: 28,
+                          size: 24,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Text('اللون المختار: $colorHex'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                height: contentHeight,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color:
+                        theme.colorScheme.outlineVariant.withValues(alpha: 0.7),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: Center(
+                        child: _ColorWheel(
+                          color: _selectedColor,
+                          onChanged: (color) =>
+                              setState(() => _selectedColor = color),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  OutlinedButton(
-                    onPressed: () => setState(() => _step = 0),
-                    child: const Text('رجوع'),
-                  ),
-                  const Spacer(),
-                  FilledButton(
-                    onPressed: () => Navigator.pop(
-                      context,
-                      IconPickerResult(
-                        iconName: _selectedIconName,
-                        colorHex: _colorToHex(_selectedColor),
-                      ),
+              Center(
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(
+                    context,
+                    IconPickerResult(
+                      iconName: _selectedIconName,
+                      colorHex: _colorToHex(_selectedColor),
                     ),
-                    child: const Text('تأكيد'),
                   ),
-                ],
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(180, 50),
+                  ),
+                  child: const Text('تأكيد'),
+                ),
               ),
             ],
           ],
@@ -889,14 +911,12 @@ class _AppIconPickerDialogState extends State<AppIconPickerDialog> {
       context: context,
       showDragHandle: true,
       builder: (context) {
-        final sheetHeight =
-            MediaQuery.of(context).size.height * 0.55;
+        final sheetHeight = MediaQuery.of(context).size.height * 0.55;
         return SafeArea(
           child: SizedBox(
             height: sheetHeight.clamp(320.0, 520.0),
             child: ListView.separated(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               itemCount: AppIconPickerDialog.categoryOrder.length,
               separatorBuilder: (_, __) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
@@ -913,7 +933,8 @@ class _AppIconPickerDialogState extends State<AppIconPickerDialog> {
                     title: Text(
                       AppIconPickerDialog.categoryLabels[id] ?? id,
                       style: TextStyle(
-                        fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                        fontWeight:
+                            selected ? FontWeight.w800 : FontWeight.w600,
                       ),
                     ),
                     trailing: selected ? const Icon(Icons.check) : null,
@@ -933,16 +954,20 @@ class _AppIconPickerDialogState extends State<AppIconPickerDialog> {
 
   Widget _topSegment(ThemeData theme) {
     return SizedBox(
-      height: 44,
+      height: 52,
       child: Container(
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-          borderRadius: BorderRadius.circular(12),
+          color:
+              theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.7),
+          ),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(4),
+          padding: const EdgeInsets.all(5),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(9),
+            borderRadius: BorderRadius.circular(12),
             child: Stack(
               children: [
                 AnimatedAlign(
@@ -957,7 +982,7 @@ class _AppIconPickerDialogState extends State<AppIconPickerDialog> {
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: const Color(0xFF1E7F5C),
-                        borderRadius: BorderRadius.circular(9),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                   ),
@@ -966,43 +991,17 @@ class _AppIconPickerDialogState extends State<AppIconPickerDialog> {
                   children: [
                     Expanded(
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(9),
+                        borderRadius: BorderRadius.circular(12),
                         onTap: () => setState(() => _step = 0),
-                        child: SizedBox.expand(
-                          child: Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 10),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Container(
-                                  width: 28,
-                                  height: 28,
-                                  decoration: BoxDecoration(
-                                    color: _selectedColor,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Center(
-                                    child: AppIconPickerDialog.iconWidgetForName(
-                                      _selectedIconName,
-                                      color: Colors.white,
-                                      size: 16,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Text(
-                                  'اختيار الأيقونة',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 13,
-                                    color: _step == 0
-                                        ? Colors.white
-                                        : theme.colorScheme.onSurface,
-                                  ),
-                                ),
-                              ],
+                        child: Center(
+                          child: Text(
+                            'اختيار الأيقونة',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                              color: _step == 0
+                                  ? Colors.white
+                                  : theme.colorScheme.onSurface,
                             ),
                           ),
                         ),
@@ -1010,19 +1009,17 @@ class _AppIconPickerDialogState extends State<AppIconPickerDialog> {
                     ),
                     Expanded(
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(9),
+                        borderRadius: BorderRadius.circular(12),
                         onTap: () => setState(() => _step = 1),
-                        child: SizedBox.expand(
-                          child: Center(
-                            child: Text(
-                              'اختيار اللون',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13,
-                                color: _step == 1
-                                    ? Colors.white
-                                    : theme.colorScheme.onSurface,
-                              ),
+                        child: Center(
+                          child: Text(
+                            'اختيار اللون',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                              color: _step == 1
+                                  ? Colors.white
+                                  : theme.colorScheme.onSurface,
                             ),
                           ),
                         ),

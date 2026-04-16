@@ -3,6 +3,7 @@
 import '../../../../core/widgets/app_icon_picker_dialog.dart';
 import '../../../app_state/presentation/cubits/app_cubit.dart';
 import '../../../transactions/domain/entities/recurring_transaction_entity.dart';
+import '../../../transactions/presentation/screens/recurring_transaction_composer_screen.dart';
 import '../../domain/entities/budget_setup_entity.dart';
 
 class BudgetSetupScreen extends StatefulWidget {
@@ -89,6 +90,62 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
 
   String _id(String prefix) =>
       '$prefix-${DateTime.now().microsecondsSinceEpoch}';
+
+  Future<void> _openIncomeComposer() async {
+    final recurring = await Navigator.of(context).push<RecurringTransactionEntity>(
+      MaterialPageRoute(
+        builder: (_) => RecurringTransactionComposerScreen(
+          cubit: widget.cubit,
+          initialType: 'income',
+          initialWithinBudget: true,
+          returnOnSave: true,
+        ),
+        fullscreenDialog: true,
+      ),
+    );
+    if (recurring == null) {
+      return;
+    }
+
+    final income = IncomeSourceEntity(
+      id: _id('income'),
+      name: recurring.name,
+      amount: recurring.isVariableIncome ? 0 : recurring.amount,
+      date: recurring.dayOfMonth.clamp(1, 31),
+      type: recurring.isVariableIncome ? 'manual' : recurring.executionType,
+      targetWalletId: recurring.walletId,
+      isVariable: recurring.isVariableIncome,
+      isDefault: false,
+    );
+
+    final nextBudget = _budget.copyWith(
+      incomeSources: [..._budget.incomeSources, income],
+    );
+    await _saveBudget(nextBudget);
+
+    await widget.cubit.addRecurringTransaction(
+      name: recurring.name,
+      type: recurring.type,
+      amount: recurring.amount,
+      dayOfMonth: recurring.dayOfMonth,
+      executionType: recurring.executionType,
+      walletId: recurring.walletId,
+      budgetScope: 'within-budget',
+      recurrencePattern: recurring.recurrencePattern,
+      icon: recurring.icon,
+      iconColor: recurring.iconColor,
+      weekday: recurring.weekday,
+      weekdays: recurring.weekdays,
+      monthOfYear: recurring.monthOfYear,
+      scheduledTime: recurring.scheduledTime,
+      reminderLeadDays: recurring.reminderLeadDays,
+      incomeSourceId: income.id,
+      categoryIds: recurring.categoryIds,
+      isVariableIncome: recurring.isVariableIncome,
+      isDebtOrSubscription: false,
+      notes: recurring.notes,
+    );
+  }
 
   Future<void> _showIncomeDialog({IncomeSourceEntity? current}) async {
     final wallets = widget.cubit.state.wallets;
@@ -846,7 +903,7 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '??? ??????',
+                'غير المخصص',
                 style: theme.textTheme.headlineSmall?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
@@ -865,14 +922,14 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
                 children: [
                   Expanded(
                     child: _summaryMini(
-                      label: '?????? ?????',
+                      label: 'إجمالي الدخل',
                       value: _totalIncome,
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: _summaryMini(
-                      label: '?????? ??????',
+                      label: 'إجمالي المخصص',
                       value: _committed,
                     ),
                   ),
@@ -895,14 +952,14 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '????? ??????',
+                'إعداد الدورة',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 6),
               Text(
-                '??? ??? ????? ?????? ?????? ????? ????? ?????? ?????? ??? ??????.',
+                'حدد يوم بداية الدورة وطريقة تجديد الخطة ونهاية المبلغ غير المخصص.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -915,7 +972,7 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
                     initialValue: _budget.startDay.toString(),
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
-                      labelText: '????? ??????',
+                      labelText: 'بداية الدورة',
                       prefixIcon: Icon(Icons.event_rounded),
                     ),
                     onFieldSubmitted: (value) {
@@ -926,14 +983,14 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
                   final cycleField = DropdownButtonFormField<String>(
                     initialValue: _budget.cycleMode,
                     decoration: const InputDecoration(
-                      labelText: '????? ?????',
+                      labelText: 'تجديد الخطة',
                       prefixIcon: Icon(Icons.autorenew_rounded),
                     ),
                     items: const [
-                      DropdownMenuItem(value: 'auto', child: Text('??????')),
+                      DropdownMenuItem(value: 'auto', child: Text('تلقائي')),
                       DropdownMenuItem(
                         value: 'confirm',
-                        child: Text('??? ???????'),
+                        child: Text('بعد التأكيد'),
                       ),
                     ],
                     onChanged: (value) {
@@ -966,14 +1023,14 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
               DropdownButtonFormField<String>(
                 initialValue: _budget.bufferEndBehavior,
                 decoration: const InputDecoration(
-                  labelText: '?????? ??? ?????? ??? ??????',
+                  labelText: 'المبلغ غير المخصص آخر الدورة',
                   prefixIcon: Icon(Icons.savings_rounded),
                 ),
                 items: const [
                   DropdownMenuItem(
-                      value: 'to-savings', child: Text('????? ???????')),
+                      value: 'to-savings', child: Text('يتحول للتوفير')),
                   DropdownMenuItem(
-                      value: 'keep', child: Text('???? ?????? ???????')),
+                      value: 'keep', child: Text('يبقى للدورة الجديدة')),
                 ],
                 onChanged: (value) {
                   if (value != null) {
@@ -986,21 +1043,21 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
         ),
         const SizedBox(height: 18),
         _plannerSection(
-          title: '????? ?????',
-          subtitle: '?? ???? ??? ???? ???? ????? ??????? ???????.',
+          title: 'مصادر الدخل',
+          subtitle: 'أضف الدخل الثابت أو المتغير الذي يدخل في ميزانيتك الشهرية.',
           icon: Icons.south_west_rounded,
           accent: const Color(0xFF0F9D7A),
-          actionLabel: '????? ???',
-          onAction: () => _showIncomeDialog(),
+          actionLabel: 'إضافة دخل',
+          onAction: _openIncomeComposer,
           children: _budget.incomeSources.isEmpty
-              ? [_emptyState('??? ??? ??? ????? ????? ?????????.')]
+              ? [_emptyState('أضف أول دخل لتبدأ توزيع الميزانية.')]
               : _budget.incomeSources
                   .map(
                     (income) => _planTile(
                       title: income.name,
                       subtitle: income.isVariable
-                          ? '??? ??? ???? ??? ?????? ??????'
-                          : '${_incomeTypeLabel(income.type)} ? ??? ${income.date} ? ${income.amount.toStringAsFixed(2)}',
+                          ? 'دخل متغير يتم تسجيله يدويًا'
+                          : '${_incomeTypeLabel(income.type)} • يوم ${income.date} • ${income.amount.toStringAsFixed(2)}',
                       leading: Icons.payments_rounded,
                       tint: const Color(0xFF0F9D7A),
                       onTap: () => _showIncomeDialog(current: income),
@@ -1027,20 +1084,20 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
         ),
         const SizedBox(height: 14),
         _plannerSection(
-          title: '????????',
-          subtitle: '??? ???????? ??? ???? ????? ??? ????? ?????.',
+          title: 'المخصصات',
+          subtitle: 'قسّم ميزانيتك على بنود واضحة قبل بداية الصرف.',
           icon: Icons.grid_view_rounded,
           accent: const Color(0xFF296BFF),
-          actionLabel: '????? ????',
+          actionLabel: 'إضافة مخصص',
           onAction: () => _showAllocationDialog(),
           children: _budget.allocations.isEmpty
-              ? [_emptyState('???? ?????? ??? ????? ?? ????? ?? ?????????.')]
+              ? [_emptyState('أنشئ مخصصات مثل البيت أو الأكل أو المواصلات.')]
               : _budget.allocations
                   .map(
                     (allocation) => _planTile(
                       title: allocation.name,
                       subtitle:
-                          '${allocation.funding.fold<double>(0, (s, f) => s + f.plannedAmount).toStringAsFixed(2)} ? ${allocation.rolloverBehavior == 'keep' ? '???? ?????? ???????' : '???? ???????'}',
+                          '${allocation.funding.fold<double>(0, (s, f) => s + f.plannedAmount).toStringAsFixed(2)} • ${allocation.rolloverBehavior == 'keep' ? 'يرحل للدورة التالية' : 'يرجع للتوفير'}',
                       leading: Icons.inventory_2_rounded,
                       tint: const Color(0xFF296BFF),
                       onTap: () => _showAllocationDialog(current: allocation),
@@ -1059,20 +1116,20 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
         ),
         const SizedBox(height: 14),
         _plannerSection(
-          title: '????????',
-          subtitle: '????? ????? ????? ??????? ?? ?????? ????????.',
+          title: 'الحصالات',
+          subtitle: 'مبالغ ثابتة تتحول لأهدافك أو محافظك المرتبطة.',
           icon: Icons.savings_rounded,
           accent: const Color(0xFFE09F1F),
-          actionLabel: '????? ?????',
+          actionLabel: 'إضافة حصالة',
           onAction: () => _showLinkedDialog(),
           children: _budget.linkedWallets.isEmpty
-              ? [_emptyState('??? ??????? ???????? ??? ??????? ?? ?????.')]
+              ? [_emptyState('أضف حصالاتك المرتبطة مثل الطوارئ أو السفر.')]
               : _budget.linkedWallets
                   .map(
                     (wallet) => _planTile(
                       title: wallet.name,
                       subtitle:
-                          '${wallet.monthlyAmount.toStringAsFixed(2)} ? ??? ${wallet.executionDay}',
+                          '${wallet.monthlyAmount.toStringAsFixed(2)} • يوم ${wallet.executionDay}',
                       leading: Icons.account_balance_wallet_rounded,
                       tint: const Color(0xFFE09F1F),
                       onTap: () => _showLinkedDialog(current: wallet),
@@ -1091,23 +1148,23 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
         ),
         const SizedBox(height: 14),
         _plannerSection(
-          title: '?????? ????????',
-          subtitle: '???????? ????? ????? ????? ???? ????? ????? ????.',
+          title: 'الديون والأقساط',
+          subtitle: 'التزامات شهرية تحتاج ميعاد واضح ومصدر تمويل محدد.',
           icon: Icons.receipt_long_rounded,
           accent: const Color(0xFFC65D2E),
-          actionLabel: '????? ??? ?? ???',
+          actionLabel: 'إضافة دين أو قسط',
           onAction: () => _showDebtDialog(),
           children: _budget.debts.isEmpty
               ? [
                   _emptyState(
-                      '??? ??????? ?? ?????? ??????? ??? ???? ??? ??????????.')
+                      'سجل الأقساط أو الديون الشهرية حتى تظهر ضمن الالتزامات.')
                 ]
               : _budget.debts
                   .map(
                     (debt) => _planTile(
                       title: debt.name,
                       subtitle:
-                          '${debt.amount.toStringAsFixed(2)} ? ??? ${debt.executionDay}',
+                          '${debt.amount.toStringAsFixed(2)} • يوم ${debt.executionDay}',
                       leading: Icons.credit_card_rounded,
                       tint: const Color(0xFFC65D2E),
                       onTap: () => _showDebtDialog(current: debt),

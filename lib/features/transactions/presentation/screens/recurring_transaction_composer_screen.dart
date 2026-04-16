@@ -12,11 +12,15 @@ class RecurringTransactionComposerScreen extends StatefulWidget {
     required this.cubit,
     required this.initialType,
     this.initialRecurring,
+    this.initialWithinBudget = false,
+    this.returnOnSave = false,
   });
 
   final AppCubit cubit;
   final String initialType;
   final RecurringTransactionEntity? initialRecurring;
+  final bool initialWithinBudget;
+  final bool returnOnSave;
 
   @override
   State<RecurringTransactionComposerScreen> createState() =>
@@ -58,8 +62,9 @@ class _RecurringTransactionComposerScreenState
     _type = recurring?.type ?? widget.initialType;
     _walletId = recurring?.walletId ??
         (state.wallets.isNotEmpty ? state.wallets.first.id : '');
-    _withinBudget =
-        (recurring?.budgetScope ?? 'outside-budget') == 'within-budget';
+    _withinBudget = recurring != null
+        ? recurring.budgetScope == 'within-budget'
+        : widget.initialWithinBudget;
     _executionType = recurring?.executionType ?? 'confirm';
     _recurrencePattern = recurring?.recurrencePattern ?? 'monthly';
     _iconName = recurring?.icon ?? (_type == 'income' ? 'cash' : 'category');
@@ -301,7 +306,13 @@ class _RecurringTransactionComposerScreenState
                 ],
                 onChanged: (value) {
                   if (value != null) {
-                    setState(() => _recurrencePattern = value);
+                    setState(() {
+                      _recurrencePattern = value;
+                      if ((_recurrencePattern == 'daily' || _isWeekPattern) &&
+                          _reminderLeadDays == 0) {
+                        _reminderLeadDays = 1;
+                      }
+                    });
                   }
                 },
               ),
@@ -340,17 +351,37 @@ class _RecurringTransactionComposerScreenState
               if (_executionType == 'confirm') ...[
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
-                  value: _reminderLeadDays,
-                  decoration: const InputDecoration(
-                    labelText: 'وقت الإشعار',
-                    prefixIcon: Icon(Icons.notifications_active_rounded),
+                  value: (_recurrencePattern == 'daily' || _isWeekPattern) &&
+                          _reminderLeadDays == 0
+                      ? 1
+                      : _reminderLeadDays,
+                  decoration: InputDecoration(
+                    labelText: _recurrencePattern == 'daily' || _isWeekPattern
+                        ? 'وقت الإشعار'
+                        : 'وقت الإشعار',
+                    prefixIcon: const Icon(Icons.notifications_active_rounded),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 0, child: Text('في نفس اليوم')),
-                    DropdownMenuItem(value: 1, child: Text('مبكر بيوم')),
-                    DropdownMenuItem(value: 2, child: Text('مبكر بيومين')),
-                    DropdownMenuItem(value: 3, child: Text('مبكر بـ 3 أيام')),
-                  ],
+                  items: (_recurrencePattern == 'daily' || _isWeekPattern)
+                      ? const [
+                          DropdownMenuItem(
+                            value: 1,
+                            child: Text('قبلها بساعة'),
+                          ),
+                          DropdownMenuItem(
+                            value: 2,
+                            child: Text('قبلها بساعتين'),
+                          ),
+                          DropdownMenuItem(
+                            value: 3,
+                            child: Text('قبلها بـ 3 ساعات'),
+                          ),
+                        ]
+                      : const [
+                          DropdownMenuItem(value: 0, child: Text('في نفس اليوم')),
+                          DropdownMenuItem(value: 1, child: Text('مبكر بيوم')),
+                          DropdownMenuItem(value: 2, child: Text('مبكر بيومين')),
+                          DropdownMenuItem(value: 3, child: Text('مبكر بـ 3 أيام')),
+                        ],
                   onChanged: (value) {
                     if (value != null) {
                       setState(() => _reminderLeadDays = value);
@@ -822,6 +853,12 @@ class _RecurringTransactionComposerScreenState
           ? null
           : _notesController.text.trim(),
     );
+
+    if (widget.returnOnSave) {
+      if (!mounted) return;
+      Navigator.of(context).pop(recurring);
+      return;
+    }
 
     if (widget.initialRecurring == null) {
       await widget.cubit.addRecurringTransaction(

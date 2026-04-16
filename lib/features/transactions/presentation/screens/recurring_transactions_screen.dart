@@ -42,7 +42,7 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
                 children: [
                   Expanded(
                     child: ChoiceChip(
-                      label: const Text('ط§ظ„ط¯ط®ظ„'),
+                      label: const Text('الدخل'),
                       selected: _tab == 'income',
                       onSelected: (_) => setState(() => _tab = 'income'),
                     ),
@@ -50,7 +50,7 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
                   const SizedBox(width: 8),
                   Expanded(
                     child: ChoiceChip(
-                      label: const Text('ط§ظ„ظ…طµط±ظˆظپ'),
+                      label: const Text('المصروف'),
                       selected: _tab == 'expense',
                       onSelected: (_) => setState(() => _tab = 'expense'),
                     ),
@@ -64,29 +64,91 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
               child: FilledButton.icon(
                 onPressed: () => _openRecurringComposer(mode: _tab),
                 icon: const Icon(Icons.add),
-                label: Text(_tab == 'income' ? 'ط¥ط¶ط§ظپط© ط¯ط®ظ„' : 'ط¥ط¶ط§ظپط© ظ…طµط±ظˆظپ'),
+                label: Text(_tab == 'income' ? 'إضافة دخل' : 'إضافة مصروف'),
               ),
             ),
             const SizedBox(height: 12),
-            _sectionTitle('ظ…ط¹ط§ظ…ظ„ط§طھ ظ…طھظƒط±ط±ط© ط¨ط§ظ„ظ…ظٹط²ط§ظ†ظٹط©'),
-            const SizedBox(height: 8),
-            ..._recurringCards(inBudget),
-            if (inBudget.isEmpty)
-              const Card(child: ListTile(title: Text('ظ„ط§ طھظˆط¬ط¯ ظ…ط¹ط§ظ…ظ„ط§طھ ظپظٹ ظ‡ط°ط§ ط§ظ„ظ‚ط³ظ….'))),
+            _scopeSection(
+              title: 'داخل الميزانية',
+              subtitle: 'المعاملات التي تدخل في التخطيط الشهري والالتزامات.',
+              records: inBudget,
+              emptyLabel: 'لا توجد معاملات متكررة داخل الميزانية.',
+              accent: Theme.of(context).colorScheme.primary,
+            ),
             const SizedBox(height: 12),
-            _sectionTitle('ظ…ط¹ط§ظ…ظ„ط§طھ ط®ط§ط±ط¬ ط§ظ„ظ…ظٹط²ط§ظ†ظٹط©'),
-            const SizedBox(height: 8),
-            ..._recurringCards(outBudget),
-            if (outBudget.isEmpty)
-              const Card(child: ListTile(title: Text('ظ„ط§ طھظˆط¬ط¯ ظ…ط¹ط§ظ…ظ„ط§طھ ظپظٹ ظ‡ط°ط§ ط§ظ„ظ‚ط³ظ….'))),
+            _scopeSection(
+              title: 'عام',
+              subtitle: 'معاملات متكررة خارج حسابات الميزانية.',
+              records: outBudget,
+              emptyLabel: 'لا توجد معاملات متكررة عامة.',
+              accent: Theme.of(context).colorScheme.secondary,
+            ),
           ],
         );
       },
     );
   }
 
-  Widget _sectionTitle(String title) {
-    return Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16));
+  Widget _scopeSection({
+    required String title,
+    required String subtitle,
+    required List<RecurringTransactionEntity> records,
+    required String emptyLabel,
+    required Color accent,
+  }) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: accent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            height: 1,
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.45),
+          ),
+          const SizedBox(height: 10),
+          if (records.isEmpty)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(emptyLabel),
+            )
+          else
+            ..._recurringCards(records),
+        ],
+      ),
+    );
   }
 
   List<Widget> _recurringCards(List<RecurringTransactionEntity> records) {
@@ -109,7 +171,7 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
               ),
               title: Text(record.name),
               subtitle: Text(
-                '${_recurrenceLabel(record)} - ${record.executionType == 'auto' ? 'طھظ„ظ‚ط§ط¦ظٹ' : record.executionType == 'confirm' ? 'طھط£ظƒظٹط¯' : 'ظٹط¯ظˆظٹ'}',
+                '${_recurrenceLabel(record)} - ${record.executionType == 'auto' ? 'تلقائي' : record.executionType == 'confirm' ? 'يحتاج تأكيد' : 'يدوي'}',
               ),
               trailing: Text(record.amount.toStringAsFixed(2)),
               onTap: () => _openDetailsSheet(record),
@@ -130,25 +192,29 @@ class _RecurringTransactionsScreenState extends State<RecurringTransactionsScree
           children: [
             Text(record.name, style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
-            _row('ط§ظ„ظ†ظˆط¹', record.type == 'income' ? 'ط¯ط®ظ„' : 'ظ…طµط±ظˆظپ'),
-            _row('ط§ظ„ظ…ط¨ظ„ط؛', record.amount.toStringAsFixed(2)),
-            _row('ط§ظ„طھط§ط±ظٹط® ط§ظ„ط¯ظˆط±ظٹ', _recurrenceLabel(record)),
+            _row('النوع', record.type == 'income' ? 'دخل' : 'مصروف'),
+            _row('المبلغ', record.amount.toStringAsFixed(2)),
+            _row('التكرار', _recurrenceLabel(record)),
             _row(
-              'ط§ظ„طھظ†ظپظٹط°',
+              'التنفيذ',
               record.executionType == 'auto'
-                  ? 'طھظ„ظ‚ط§ط¦ظٹ'
+                  ? 'تلقائي'
                   : record.executionType == 'confirm'
-                      ? 'ظٹطھط·ظ„ط¨ طھط£ظƒظٹط¯'
-                      : 'ظٹط¯ظˆظٹ',
+                      ? 'يحتاج تأكيد'
+                      : 'يدوي',
             ),
-            _row('ط§ظ„ظ…ظٹط²ط§ظ†ظٹط©', record.budgetScope == 'within-budget' ? 'ط¯ط§ط®ظ„ ط§ظ„ظ…ظٹط²ط§ظ†ظٹط©' : 'ط®ط§ط±ط¬ ط§ظ„ظ…ظٹط²ط§ظ†ظٹط©'),
-            if ((record.notes ?? '').trim().isNotEmpty) _row('ظ…ظ„ط§ط­ط¸ط§طھ', record.notes!.trim()),
+            _row(
+              'النطاق',
+              record.budgetScope == 'within-budget' ? 'داخل الميزانية' : 'عام',
+            ),
+            if ((record.notes ?? '').trim().isNotEmpty)
+              _row('ملاحظات', record.notes!.trim()),
             const SizedBox(height: 16),
             Center(
               child: FilledButton.icon(
                 onPressed: () => _openRecurringComposer(mode: record.type, editing: record),
                 icon: const Icon(Icons.edit_outlined),
-                label: const Text('طھط¹ط¯ظٹظ„ ط§ظ„ظ…ط¹ط§ظ…ظ„ط©'),
+                label: const Text('تعديل المعاملة'),
               ),
             ),
           ],

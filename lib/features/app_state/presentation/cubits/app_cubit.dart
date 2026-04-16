@@ -515,9 +515,16 @@ class AppCubit extends Cubit<AppStateEntity> {
     required String icon,
     required String iconColor,
     int? weekday,
+    List<int>? weekdays,
+    int? monthOfYear,
+    String? scheduledTime,
+    int? reminderLeadDays,
     String? allocationId,
     String? targetJarId,
     String? incomeSourceId,
+    List<String>? categoryIds,
+    bool isVariableIncome = false,
+    bool isDebtOrSubscription = false,
     String? notes,
   }) async {
     final recurring = RecurringTransactionEntity(
@@ -533,9 +540,16 @@ class AppCubit extends Cubit<AppStateEntity> {
       icon: icon,
       iconColor: iconColor,
       weekday: weekday,
+      weekdays: weekdays ?? const [],
+      monthOfYear: monthOfYear,
+      scheduledTime: scheduledTime,
+      reminderLeadDays: reminderLeadDays,
       allocationId: allocationId,
       targetJarId: targetJarId,
       incomeSourceId: incomeSourceId,
+      categoryIds: categoryIds ?? const [],
+      isVariableIncome: isVariableIncome,
+      isDebtOrSubscription: isDebtOrSubscription,
       notes: notes,
     );
     final next = state.copyWith(

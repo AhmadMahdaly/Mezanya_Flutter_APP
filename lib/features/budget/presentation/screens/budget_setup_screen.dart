@@ -1315,13 +1315,15 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
   }
 
   String _incomeTypeLabel(String type) {
-        return '??????';
+    switch (type) {
       case 'auto':
-        return '????';
+        return 'تلقائي';
       case 'manual':
-        return '??? ???????';
+        return 'يدوي';
+      case 'confirm':
+        return 'تأكيد';
       default:
-        return 'ط¨ط¹ط¯ ط§ظ„طھط£ظƒظٹط¯';
+        return type;
     }
   }
 }

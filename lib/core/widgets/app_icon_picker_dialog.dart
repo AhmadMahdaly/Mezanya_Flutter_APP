@@ -663,46 +663,149 @@ class _AppIconPickerDialogState extends State<AppIconPickerDialog> {
                   ),
                   color: theme.colorScheme.surface,
                 ),
-                child: GridView.builder(
-                  itemCount: icons.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 5,
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 8,
-                    childAspectRatio: 1,
-                  ),
-                  itemBuilder: (context, index) {
-                    final item = icons[index];
-                    final active = _selectedIconName == item.name;
-                    return InkWell(
-                      onTap: () =>
-                          setState(() => _selectedIconName = item.name),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest
-                              .withValues(alpha: 0.45),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: active
-                                ? theme.colorScheme.primary
-                                : theme.colorScheme.outlineVariant
-                                    .withValues(alpha: 0.5),
-                          ),
+                child: _selectedCategoryId == 'all'
+                    ? CustomScrollView(
+                        slivers: [
+                          ...AppIconPickerDialog.categoryOrder
+                              .where((id) => id != 'all')
+                              .expand((categoryId) {
+                            final groupIcons =
+                                AppIconPickerDialog.iconsForCategory(categoryId);
+                            return [
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    12,
+                                    12,
+                                    12,
+                                    6,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        AppIconPickerDialog
+                                                .categoryLabels[categoryId] ??
+                                            categoryId,
+                                        textAlign: TextAlign.right,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w800,
+                                          height: 1.0,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Container(
+                                        height: 2,
+                                        width: double.infinity,
+                                        decoration: BoxDecoration(
+                                          color: theme
+                                              .colorScheme.onSurfaceVariant
+                                              .withValues(alpha: 0.65),
+                                          borderRadius:
+                                              BorderRadius.circular(2),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              SliverGrid(
+                                delegate: SliverChildBuilderDelegate(
+                                  (context, index) {
+                                    final item = groupIcons[index];
+                                    final active =
+                                        _selectedIconName == item.name;
+                                    return InkWell(
+                                      onTap: () => setState(
+                                          () => _selectedIconName = item.name),
+                                      borderRadius:
+                                          BorderRadius.circular(12),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: theme
+                                              .colorScheme.surfaceContainerHighest
+                                              .withValues(alpha: 0.45),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: active
+                                                ? theme.colorScheme.primary
+                                                : theme.colorScheme
+                                                    .outlineVariant
+                                                    .withValues(alpha: 0.5),
+                                          ),
+                                        ),
+                                        child: Center(
+                                          child:
+                                              AppIconPickerDialog.iconWidgetForName(
+                                            item.name,
+                                            size: 24,
+                                            color: active
+                                                ? theme.colorScheme.primary
+                                                : theme
+                                                    .colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  childCount: groupIcons.length,
+                                ),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 5,
+                                  mainAxisSpacing: 8,
+                                  crossAxisSpacing: 8,
+                                  childAspectRatio: 1,
+                                ),
+                              ),
+                            ];
+                          }),
+                        ],
+                      )
+                    : GridView.builder(
+                        itemCount: icons.length,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 5,
+                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 8,
+                          childAspectRatio: 1,
                         ),
-                        child: Center(
-                          child: AppIconPickerDialog.iconWidgetForName(
-                            item.name,
-                            size: 24,
-                            color: active
-                                ? theme.colorScheme.primary
-                                : theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
+                        itemBuilder: (context, index) {
+                          final item = icons[index];
+                          final active = _selectedIconName == item.name;
+                          return InkWell(
+                            onTap: () =>
+                                setState(() => _selectedIconName = item.name),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: theme
+                                    .colorScheme.surfaceContainerHighest
+                                    .withValues(alpha: 0.45),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: active
+                                      ? theme.colorScheme.primary
+                                      : theme.colorScheme.outlineVariant
+                                          .withValues(alpha: 0.5),
+                                ),
+                              ),
+                              child: Center(
+                                child: AppIconPickerDialog.iconWidgetForName(
+                                  item.name,
+                                  size: 24,
+                                  color: active
+                                      ? theme.colorScheme.primary
+                                      : theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
               ),
               const SizedBox(height: 12),
               Row(
@@ -786,29 +889,43 @@ class _AppIconPickerDialogState extends State<AppIconPickerDialog> {
       context: context,
       showDragHandle: true,
       builder: (context) {
-        return ListView(
-          padding: const EdgeInsets.all(12),
-          children: AppIconPickerDialog.categoryOrder.map((id) {
-            final selected = id == _selectedCategoryId;
-            return Card(
-              color: selected
-                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12)
-                  : Theme.of(context).colorScheme.surface,
-              child: ListTile(
-                title: Text(
-                  AppIconPickerDialog.categoryLabels[id] ?? id,
-                  style: TextStyle(
-                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+        final sheetHeight =
+            MediaQuery.of(context).size.height * 0.55;
+        return SafeArea(
+          child: SizedBox(
+            height: sheetHeight.clamp(320.0, 520.0),
+            child: ListView.separated(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              itemCount: AppIconPickerDialog.categoryOrder.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final id = AppIconPickerDialog.categoryOrder[index];
+                final selected = id == _selectedCategoryId;
+                return Card(
+                  color: selected
+                      ? Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.12)
+                      : Theme.of(context).colorScheme.surface,
+                  child: ListTile(
+                    title: Text(
+                      AppIconPickerDialog.categoryLabels[id] ?? id,
+                      style: TextStyle(
+                        fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                      ),
+                    ),
+                    trailing: selected ? const Icon(Icons.check) : null,
+                    onTap: () {
+                      setState(() => _selectedCategoryId = id);
+                      Navigator.pop(context);
+                    },
                   ),
-                ),
-                trailing: selected ? const Icon(Icons.check) : null,
-                onTap: () {
-                  setState(() => _selectedCategoryId = id);
-                  Navigator.pop(context);
-                },
-              ),
-            );
-          }).toList(),
+                );
+              },
+            ),
+          ),
         );
       },
     );
@@ -851,15 +968,41 @@ class _AppIconPickerDialogState extends State<AppIconPickerDialog> {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(9),
                         onTap: () => setState(() => _step = 0),
-                        child: Center(
-                          child: Text(
-                            'اختيار الأيقونة',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                              color: _step == 0
-                                  ? Colors.white
-                                  : theme.colorScheme.onSurface,
+                        child: SizedBox.expand(
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 10),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: _selectedColor,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Center(
+                                    child: AppIconPickerDialog.iconWidgetForName(
+                                      _selectedIconName,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'اختيار الأيقونة',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13,
+                                    color: _step == 0
+                                        ? Colors.white
+                                        : theme.colorScheme.onSurface,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -869,15 +1012,17 @@ class _AppIconPickerDialogState extends State<AppIconPickerDialog> {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(9),
                         onTap: () => setState(() => _step = 1),
-                        child: Center(
-                          child: Text(
-                            'اختيار اللون',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                              color: _step == 1
-                                  ? Colors.white
-                                  : theme.colorScheme.onSurface,
+                        child: SizedBox.expand(
+                          child: Center(
+                            child: Text(
+                              'اختيار اللون',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                                color: _step == 1
+                                    ? Colors.white
+                                    : theme.colorScheme.onSurface,
+                              ),
                             ),
                           ),
                         ),

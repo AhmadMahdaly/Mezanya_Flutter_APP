@@ -12,9 +12,16 @@ class RecurringTransactionEntity {
     required this.icon,
     required this.iconColor,
     this.weekday,
+    this.weekdays = const [],
+    this.monthOfYear,
+    this.scheduledTime,
+    this.reminderLeadDays,
     this.allocationId,
     this.targetJarId,
     this.incomeSourceId,
+    this.categoryIds = const [],
+    this.isVariableIncome = false,
+    this.isDebtOrSubscription = false,
     this.notes,
     this.isActive = true,
   });
@@ -31,9 +38,16 @@ class RecurringTransactionEntity {
   final String icon;
   final String iconColor;
   final int? weekday;
+  final List<int> weekdays;
+  final int? monthOfYear;
+  final String? scheduledTime;
+  final int? reminderLeadDays;
   final String? allocationId;
   final String? targetJarId;
   final String? incomeSourceId;
+  final List<String> categoryIds;
+  final bool isVariableIncome;
+  final bool isDebtOrSubscription;
   final String? notes;
   final bool isActive;
 
@@ -50,9 +64,16 @@ class RecurringTransactionEntity {
     String? icon,
     String? iconColor,
     int? weekday,
+    List<int>? weekdays,
+    int? monthOfYear,
+    String? scheduledTime,
+    int? reminderLeadDays,
     String? allocationId,
     String? targetJarId,
     String? incomeSourceId,
+    List<String>? categoryIds,
+    bool? isVariableIncome,
+    bool? isDebtOrSubscription,
     String? notes,
     bool? isActive,
   }) {
@@ -69,9 +90,16 @@ class RecurringTransactionEntity {
       icon: icon ?? this.icon,
       iconColor: iconColor ?? this.iconColor,
       weekday: weekday ?? this.weekday,
+      weekdays: weekdays ?? this.weekdays,
+      monthOfYear: monthOfYear ?? this.monthOfYear,
+      scheduledTime: scheduledTime ?? this.scheduledTime,
+      reminderLeadDays: reminderLeadDays ?? this.reminderLeadDays,
       allocationId: allocationId ?? this.allocationId,
       targetJarId: targetJarId ?? this.targetJarId,
       incomeSourceId: incomeSourceId ?? this.incomeSourceId,
+      categoryIds: categoryIds ?? this.categoryIds,
+      isVariableIncome: isVariableIncome ?? this.isVariableIncome,
+      isDebtOrSubscription: isDebtOrSubscription ?? this.isDebtOrSubscription,
       notes: notes ?? this.notes,
       isActive: isActive ?? this.isActive,
     );
@@ -91,9 +119,16 @@ class RecurringTransactionEntity {
       'icon': icon,
       'iconColor': iconColor,
       'weekday': weekday,
+      'weekdays': weekdays,
+      'monthOfYear': monthOfYear,
+      'scheduledTime': scheduledTime,
+      'reminderLeadDays': reminderLeadDays,
       'allocationId': allocationId,
       'targetJarId': targetJarId,
       'incomeSourceId': incomeSourceId,
+      'categoryIds': categoryIds,
+      'isVariableIncome': isVariableIncome,
+      'isDebtOrSubscription': isDebtOrSubscription,
       'notes': notes,
       'isActive': isActive,
     };
@@ -113,9 +148,20 @@ class RecurringTransactionEntity {
       icon: map['icon'] as String? ?? 'category',
       iconColor: map['iconColor'] as String? ?? '#165b47',
       weekday: map['weekday'] as int?,
+      weekdays: (map['weekdays'] as List<dynamic>? ?? const <dynamic>[])
+          .map((item) => item as int)
+          .toList(),
+      monthOfYear: map['monthOfYear'] as int?,
+      scheduledTime: map['scheduledTime'] as String?,
+      reminderLeadDays: map['reminderLeadDays'] as int?,
       allocationId: map['allocationId'] as String?,
       targetJarId: map['targetJarId'] as String?,
       incomeSourceId: map['incomeSourceId'] as String?,
+      categoryIds: (map['categoryIds'] as List<dynamic>? ?? const <dynamic>[])
+          .map((item) => item as String)
+          .toList(),
+      isVariableIncome: map['isVariableIncome'] as bool? ?? false,
+      isDebtOrSubscription: map['isDebtOrSubscription'] as bool? ?? false,
       notes: map['notes'] as String?,
       isActive: map['isActive'] as bool? ?? true,
     );

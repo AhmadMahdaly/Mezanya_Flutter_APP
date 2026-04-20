@@ -125,8 +125,28 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
     });
   }
 
-  void _removeFunding(String id) {
+  Future<void> _removeFunding(String id) async {
     if (_funding.length == 1) {
+      return;
+    }
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف مصدر التمويل'),
+        content: const Text('سيتم حذف مصدر التمويل من هذه الحصالة. هل تريد المتابعة؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+    if (approved != true || !mounted) {
       return;
     }
     setState(() {
@@ -172,6 +192,29 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
     );
 
     Navigator.of(context).pop(JarEditorResult(entity: entity));
+  }
+
+  Future<void> _requestDeleteJar() async {
+    if (_isDefaultJar) return;
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف الحصالة'),
+        content: const Text('سيتم حذف الحصالة من خطة الميزانية. هل تريد المتابعة؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+    if (approved != true || !mounted) return;
+    Navigator.of(context).pop(const JarEditorResult(deleteRequested: true));
   }
 
   @override
@@ -447,9 +490,7 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
                 child: TextButton.icon(
                   onPressed: _isDefaultJar
                       ? null
-                      : () => Navigator.of(context).pop(
-                            const JarEditorResult(deleteRequested: true),
-                          ),
+                      : _requestDeleteJar,
                   icon: const Icon(Icons.delete_outline_rounded),
                   label: Text(
                     _isDefaultJar ? 'حصالة افتراضية غير قابلة للحذف' : 'حذف الحصالة',

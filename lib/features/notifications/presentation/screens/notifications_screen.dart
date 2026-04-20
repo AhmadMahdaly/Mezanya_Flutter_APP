@@ -381,7 +381,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           item.isDebtOrSubscription &&
           (((debt.recurringTransactionId ?? '').isNotEmpty &&
                   item.id == debt.recurringTransactionId) ||
-              (item.name == debt.name && item.amount == debt.amount)),
+              (item.name == debt.name)),
     );
     return recurring.isEmpty ? null : recurring.first;
   }

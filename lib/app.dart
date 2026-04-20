@@ -62,7 +62,6 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> {
   int _currentIndex = 0;
   bool _isAddSheetOpen = false;
-  static const double _bottomBarHeight = 98;
 
   final _tabs = const <_BottomTab>[
     _BottomTab(
@@ -142,7 +141,7 @@ class _MainLayoutState extends State<MainLayout> {
             item.isDebtOrSubscription &&
             (((debt.recurringTransactionId ?? '').isNotEmpty &&
                     item.id == debt.recurringTransactionId) ||
-                (item.name == debt.name && item.amount == debt.amount)),
+                (item.name == debt.name && item.isDebtOrSubscription)),
       );
       if (recurring.isEmpty || recurring.first.executionType != 'confirm') {
         continue;
@@ -174,7 +173,7 @@ class _MainLayoutState extends State<MainLayout> {
       context: context,
       isScrollControlled: true, // مهم عشان يأخذ full height
       useSafeArea: true, showDragHandle: true,
-      backgroundColor: Color(0xffeee5d8),
+      backgroundColor: const Color(0xffeee5d8),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),

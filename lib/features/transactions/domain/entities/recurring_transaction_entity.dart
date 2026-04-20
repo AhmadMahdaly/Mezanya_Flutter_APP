@@ -22,6 +22,8 @@ class RecurringTransactionEntity {
     this.categoryIds = const [],
     this.isVariableIncome = false,
     this.isDebtOrSubscription = false,
+    /// إجمالي أصل الدين (للميزانية وحساب المتبقي). يساوي مبلغ القسط إن لم يُحدد.
+    this.debtPrincipalTotal,
     this.notes,
     this.snoozedUntil,
     this.lastHandledOccurrenceAt,
@@ -50,6 +52,7 @@ class RecurringTransactionEntity {
   final List<String> categoryIds;
   final bool isVariableIncome;
   final bool isDebtOrSubscription;
+  final double? debtPrincipalTotal;
   final String? notes;
   final String? snoozedUntil;
   final String? lastHandledOccurrenceAt;
@@ -78,6 +81,7 @@ class RecurringTransactionEntity {
     List<String>? categoryIds,
     bool? isVariableIncome,
     bool? isDebtOrSubscription,
+    double? debtPrincipalTotal,
     String? notes,
     String? snoozedUntil,
     String? lastHandledOccurrenceAt,
@@ -106,6 +110,8 @@ class RecurringTransactionEntity {
       categoryIds: categoryIds ?? this.categoryIds,
       isVariableIncome: isVariableIncome ?? this.isVariableIncome,
       isDebtOrSubscription: isDebtOrSubscription ?? this.isDebtOrSubscription,
+      debtPrincipalTotal:
+          debtPrincipalTotal ?? this.debtPrincipalTotal,
       notes: notes ?? this.notes,
       snoozedUntil: snoozedUntil ?? this.snoozedUntil,
       lastHandledOccurrenceAt:
@@ -138,6 +144,7 @@ class RecurringTransactionEntity {
       'categoryIds': categoryIds,
       'isVariableIncome': isVariableIncome,
       'isDebtOrSubscription': isDebtOrSubscription,
+      'debtPrincipalTotal': debtPrincipalTotal,
       'notes': notes,
       'snoozedUntil': snoozedUntil,
       'lastHandledOccurrenceAt': lastHandledOccurrenceAt,
@@ -173,6 +180,7 @@ class RecurringTransactionEntity {
           .toList(),
       isVariableIncome: map['isVariableIncome'] as bool? ?? false,
       isDebtOrSubscription: map['isDebtOrSubscription'] as bool? ?? false,
+      debtPrincipalTotal: (map['debtPrincipalTotal'] as num?)?.toDouble(),
       notes: map['notes'] as String?,
       snoozedUntil: map['snoozedUntil'] as String?,
       lastHandledOccurrenceAt: map['lastHandledOccurrenceAt'] as String?,

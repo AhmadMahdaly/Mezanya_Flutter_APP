@@ -526,6 +526,7 @@ class AppCubit extends Cubit<AppStateEntity> {
     List<String>? categoryIds,
     bool isVariableIncome = false,
     bool isDebtOrSubscription = false,
+    double? debtPrincipalTotal,
     String? notes,
   }) async {
     final recurring = RecurringTransactionEntity(
@@ -551,6 +552,7 @@ class AppCubit extends Cubit<AppStateEntity> {
       categoryIds: categoryIds ?? const [],
       isVariableIncome: isVariableIncome,
       isDebtOrSubscription: isDebtOrSubscription,
+      debtPrincipalTotal: debtPrincipalTotal,
       notes: notes,
     );
     final next = state.copyWith(

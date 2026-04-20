@@ -25,6 +25,7 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
   late BudgetSetupEntity _budget;
   late DateTime _displayMonth;
   bool _futureMonthNoticeShown = false;
+  static const String _defaultSavingsJarId = 'linked-savings-default';
 
   static const List<String> _weekdayNames = <String>[
     'الإثنين',
@@ -75,6 +76,21 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
   double get _committed => _allocationsTotal + _linkedTotal + _debtsTotal;
 
   double get _unallocated => _totalIncome - _committed;
+
+  /// 10% من إجمالي كل مخصص — يُستخدم كتلميح تقريبي فقط في ملخص الخطة.
+  double get _allocationTenPercentHint => _budget.allocations.fold<double>(
+        0,
+        (sum, allocation) {
+          final planned = allocation.funding.fold<double>(
+            0,
+            (s, f) => s + f.plannedAmount,
+          );
+          return sum + planned * 0.10;
+        },
+      );
+
+  /// تقدير تقريبي: غير المخصص + مجموع (10% من كل مخصص). ليس رقمًا مضمونًا.
+  double get _approxSavingsHint => _unallocated + _allocationTenPercentHint;
 
   bool get _isCurrentMonthSetup {
     final now = DateTime.now();
@@ -183,6 +199,31 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
   String _id(String prefix) =>
       '$prefix-${DateTime.now().microsecondsSinceEpoch}';
 
+  Future<bool> _confirmDeletion({
+    required String title,
+    required String message,
+    String confirmLabel = 'حذف',
+  }) async {
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
+    );
+    return approved == true;
+  }
+
   Future<void> _openIncomeComposer() async {
     final result =
         await Navigator.of(context).push<RecurringTransactionComposerResult>(
@@ -250,7 +291,7 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
     final wallets = widget.cubit.state.wallets;
     final fallbackWalletId =
         wallets.isNotEmpty ? wallets.first.id : 'wallet-cash-default';
-    final linkedRecurring = _linkedRecurringIncome(current.id);
+    final linkedRecurring = _linkedRecurringIncome(current);
     final draftRecurring = linkedRecurring ??
         RecurringTransactionEntity(
           id: '',
@@ -376,7 +417,7 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
 
   Future<void> _showAllocationDialog({AllocationEntity? current}) async {
     if (_budget.incomeSources.isEmpty) return;
-    final allocation = await Navigator.of(context).push<AllocationEntity>(
+    final result = await Navigator.of(context).push<AllocationEditorResult>(
       MaterialPageRoute(
         fullscreenDialog: true,
         builder: (_) => _AllocationEditorScreen(
@@ -386,6 +427,15 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
         ),
       ),
     );
+    if (result == null) {
+      return;
+    }
+    if (result.deleteRequested && current != null) {
+      final next = _budget.allocations.where((e) => e.id != current.id).toList();
+      await _saveBudget(_budget.copyWith(allocations: next));
+      return;
+    }
+    final allocation = result.entity;
     if (allocation == null) {
       return;
     }
@@ -395,6 +445,102 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
             .map((e) => e.id == current.id ? allocation : e)
             .toList();
     await _saveBudget(_budget.copyWith(allocations: next));
+  }
+
+  Future<void> _openAllocationInfoSheet(AllocationEntity allocation) async {
+    final planned = allocation.funding.fold<double>(
+      0,
+      (s, f) => s + f.plannedAmount,
+    );
+    final categoryCount = allocation.categories.length;
+    final rolloverLabel =
+        allocation.rolloverBehavior == 'keep' ? 'يرحل للدورة التالية' : 'يرجع للتوفير';
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        final height = MediaQuery.of(context).size.height * 0.55;
+        return SizedBox(
+          height: height.clamp(380.0, 520.0),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              children: [
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: Text(
+                    'تفاصيل المخصص',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .outlineVariant
+                            .withValues(alpha: 0.6),
+                      ),
+                    ),
+                    child: ListView(
+                      padding: const EdgeInsets.all(14),
+                      children: [
+                        _detailsBlocks(
+                          blocks: [
+                            _DetailsBlock.wide('اسم المخصص', allocation.name),
+                            _DetailsBlock.narrow(
+                              'إجمالي المخطط',
+                              planned.toStringAsFixed(2),
+                            ),
+                            _DetailsBlock.narrow('سلوك المتبقي', rolloverLabel),
+                            _DetailsBlock.wide(
+                              'مصادر التمويل',
+                              _fundingBreakdownText(
+                                allocation.funding
+                                    .map((f) => (f.incomeSourceId, f.plannedAmount))
+                                    .toList(),
+                              ),
+                            ),
+                            _DetailsBlock.narrow('عدد الفئات', '$categoryCount'),
+                            _DetailsBlock.wide(
+                              'الأيقونة واللون',
+                              '${allocation.icon} • ${allocation.iconColor}',
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _showAllocationDialog(current: allocation);
+                    },
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('تعديل المخصص'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(52),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _showLinkedDialog({LinkedWalletEntity? current}) async {
@@ -427,6 +573,92 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
             .map((e) => e.id == current.id ? entity : e)
             .toList();
     await _saveBudget(_budget.copyWith(linkedWallets: next));
+  }
+
+  Future<void> _openJarInfoSheet(LinkedWalletEntity jar) async {
+    final fundingText = _fundingBreakdownText(
+      jar.funding.map((f) => (f.incomeSourceId, f.plannedAmount)).toList(),
+    );
+    final automationLabel = _incomeTypeLabel(jar.automationType);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        final height = MediaQuery.of(context).size.height * 0.55;
+        return SizedBox(
+          height: height.clamp(380.0, 520.0),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              children: [
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: Text(
+                    'تفاصيل الحصالة',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .outlineVariant
+                            .withValues(alpha: 0.6),
+                      ),
+                    ),
+                    child: ListView(
+                      padding: const EdgeInsets.all(14),
+                      children: [
+                        _detailsBlocks(
+                          blocks: [
+                            _DetailsBlock.wide('اسم الحصالة', jar.name),
+                            _DetailsBlock.narrow(
+                              'الرصيد الحالي',
+                              jar.balance.toStringAsFixed(2),
+                            ),
+                            _DetailsBlock.narrow(
+                              'المخصص الشهري',
+                              jar.monthlyAmount.toStringAsFixed(2),
+                            ),
+                            _DetailsBlock.narrow('يوم التحويل', '${jar.executionDay}'),
+                            _DetailsBlock.narrow('نوع التنفيذ', automationLabel),
+                            _DetailsBlock.wide('مصادر التمويل', fundingText),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _showLinkedDialog(current: jar);
+                    },
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('تعديل الحصالة'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(52),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _showDebtDialog({DebtEntity? current}) async {
@@ -471,10 +703,14 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
 
     final recurringId =
         linkedRecurring?.id ?? current?.recurringTransactionId ?? _id('rec');
+    final principal = recurring.debtPrincipalTotal;
+    final debtAmount = principal != null && principal > 0
+        ? principal
+        : recurring.amount;
     final debt = DebtEntity(
       id: current?.id ?? _id('debt'),
       name: recurring.name,
-      amount: recurring.amount,
+      amount: debtAmount,
       executionDay: recurring.dayOfMonth.clamp(1, 31),
       type: recurring.executionType,
       fundingSource:
@@ -516,11 +752,135 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
         scheduledTime: recurringToSave.scheduledTime,
         reminderLeadDays: recurringToSave.reminderLeadDays,
         isDebtOrSubscription: true,
+        debtPrincipalTotal: recurringToSave.debtPrincipalTotal,
         notes: recurringToSave.notes,
       );
     } else {
       await widget.cubit.updateRecurringTransaction(recurringToSave);
     }
+  }
+
+  Future<void> _openDebtInfoSheet(DebtEntity debt) async {
+    final recurring = _linkedRecurringDebt(debt);
+    final walletName = () {
+      final id = recurring?.walletId ?? '';
+      if (id.isEmpty) return 'غير محدد';
+      for (final w in widget.cubit.state.wallets) {
+        if (w.id == id) return w.name;
+      }
+      return id;
+    }();
+    final fundingName = () {
+      final id = debt.fundingSource;
+      for (final income in _budget.incomeSources) {
+        if (income.id == id) return income.name;
+      }
+      return id.isEmpty ? 'غير محدد' : id;
+    }();
+    final recurrenceLabel =
+        _recurrenceLabel(recurring?.recurrencePattern ?? 'monthly');
+    final monthlyDay =
+        (recurring?.dayOfMonth ?? debt.executionDay).clamp(1, 28).toString();
+    final timeLabel = (recurring?.scheduledTime?.isNotEmpty == true)
+        ? _formatClockTime(recurring!.scheduledTime!)
+        : 'غير محدد';
+    final reminderLabel = _reminderLabel(
+      recurrencePattern: recurring?.recurrencePattern ?? 'monthly',
+      executionType: recurring?.executionType ?? debt.type,
+      reminderLeadDays: recurring?.reminderLeadDays ?? 0,
+    );
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        final height = MediaQuery.of(context).size.height * 0.55;
+        return SizedBox(
+          height: height.clamp(380.0, 520.0),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              children: [
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: Text(
+                    'تفاصيل الدين',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .outlineVariant
+                            .withValues(alpha: 0.6),
+                      ),
+                    ),
+                    child: ListView(
+                      padding: const EdgeInsets.all(14),
+                      children: [
+                        _detailsBlocks(
+                          blocks: [
+                            _DetailsBlock.wide('اسم الدين', debt.name),
+                            _DetailsBlock.narrow(
+                              'قيمة الدين',
+                              debt.amount.toStringAsFixed(2),
+                            ),
+                            _DetailsBlock.narrow(
+                              'يوم الاستحقاق',
+                              '${debt.executionDay}',
+                            ),
+                            _DetailsBlock.narrow('مصدر التمويل', fundingName),
+                            _DetailsBlock.narrow('محفظة السداد', walletName),
+                            _DetailsBlock.narrow(
+                              'طريقة التنفيذ',
+                              _incomeTypeLabel(recurring?.executionType ?? debt.type),
+                            ),
+                            _DetailsBlock.narrow('نوع التكرار', recurrenceLabel),
+                            _DetailsBlock.narrow('اليوم الشهري', monthlyDay),
+                            _DetailsBlock.narrow('الوقت', timeLabel),
+                            _DetailsBlock.narrow('وقت الإشعار', reminderLabel),
+                            _DetailsBlock.wide(
+                              'الملاحظات',
+                              recurring?.notes?.isNotEmpty == true
+                                  ? recurring!.notes!
+                                  : '—',
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _showDebtDialog(current: debt);
+                    },
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('تعديل الدين'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(52),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -759,6 +1119,12 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
           accent: const Color(0xFF0F9D7A),
           actionLabel: 'إضافة دخل',
           onAction: _openIncomeComposer,
+          showHeaderAction: false,
+          footerAction: _thinAddButton(
+            label: 'إضافة دخل',
+            onPressed: _openIncomeComposer,
+            tint: const Color(0xFF0F9D7A),
+          ),
           children: () {
             if (_budget.incomeSources.isEmpty) {
               return <Widget>[_emptyState('أضف أول دخل لتبدأ توزيع الميزانية.')];
@@ -767,15 +1133,14 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
             return <Widget>[
               ..._budget.incomeSources.map(
                 (income) {
-                  return _planTile(
-                    title: income.name,
-                    subtitle: income.isVariable
-                        ? 'دخل متغير يتم تسجيله يدويًا'
-                        : '${_incomeTypeLabel(income.type)} • يوم ${income.date} • ${income.amount.toStringAsFixed(2)}',
-                    leading: Icons.payments_rounded,
-                    tint: const Color(0xFF0F9D7A),
-                    onTap: () => _showIncomeDialog(current: income),
-                    onDelete: null,
+                  final linkedRecurring = _linkedRecurringIncome(income);
+                  final iconName = linkedRecurring?.icon ?? 'cash';
+                  final iconColorHex = linkedRecurring?.iconColor ?? '#0f9d7a';
+                  return _incomePlanTile(
+                    income: income,
+                    iconName: iconName,
+                    iconColorHex: iconColorHex,
+                    onTap: () => _openIncomeInfoSheet(income),
                   );
                 },
               ),
@@ -790,26 +1155,32 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
           accent: const Color(0xFF296BFF),
           actionLabel: 'إضافة مخصص',
           onAction: () => _showAllocationDialog(),
+          showHeaderAction: false,
+          footerAction: _thinAddButton(
+            label: 'إضافة مخصص',
+            onPressed: () => _showAllocationDialog(),
+            tint: const Color(0xFF296BFF),
+          ),
           children: _budget.allocations.isEmpty
               ? [_emptyState('أنشئ مخصصات مثل البيت أو الأكل أو المواصلات.')]
               : _budget.allocations
                   .map(
                     (allocation) => _planTile(
                       title: allocation.name,
-                      subtitle:
-                          '${allocation.funding.fold<double>(0, (s, f) => s + f.plannedAmount).toStringAsFixed(2)} • ${allocation.rolloverBehavior == 'keep' ? 'يرحل للدورة التالية' : 'يرجع للتوفير'}',
-                      leading: Icons.inventory_2_rounded,
-                      tint: const Color(0xFF296BFF),
-                      onTap: () => _showAllocationDialog(current: allocation),
-                      onDelete: () {
-                        _saveBudget(
-                          _budget.copyWith(
-                            allocations: _budget.allocations
-                                .where((e) => e.id != allocation.id)
-                                .toList(),
-                          ),
-                        );
-                      },
+                      amountText: allocation.funding
+                          .fold<double>(0, (s, f) => s + f.plannedAmount)
+                          .toStringAsFixed(2),
+                      detailText: allocation.rolloverBehavior == 'keep'
+                          ? 'يرحل للدورة التالية'
+                          : 'يرجع للتوفير',
+                      leadingWidget: _iconBadge(
+                        iconName: allocation.icon,
+                        colorHex: allocation.iconColor,
+                        size: 42,
+                      ),
+                      tint: _colorFromHex(allocation.iconColor),
+                      onTap: () => _openAllocationInfoSheet(allocation),
+                      onDelete: null,
                     ),
                   )
                   .toList(),
@@ -822,26 +1193,28 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
           accent: const Color(0xFFE09F1F),
           actionLabel: 'إضافة حصالة',
           onAction: () => _showLinkedDialog(),
+          showHeaderAction: false,
+          footerAction: _thinAddButton(
+            label: 'إضافة حصالة',
+            onPressed: () => _showLinkedDialog(),
+            tint: const Color(0xFFE09F1F),
+          ),
           children: _budget.linkedWallets.isEmpty
               ? [_emptyState('أضف حصالاتك المرتبطة مثل الطوارئ أو السفر.')]
               : _budget.linkedWallets
                   .map(
                     (wallet) => _planTile(
                       title: wallet.name,
-                      subtitle:
-                          '${wallet.monthlyAmount.toStringAsFixed(2)} • يوم ${wallet.executionDay}',
-                      leading: Icons.account_balance_wallet_rounded,
-                      tint: const Color(0xFFE09F1F),
-                      onTap: () => _showLinkedDialog(current: wallet),
-                      onDelete: () {
-                        _saveBudget(
-                          _budget.copyWith(
-                            linkedWallets: _budget.linkedWallets
-                                .where((e) => e.id != wallet.id)
-                                .toList(),
-                          ),
-                        );
-                      },
+                      amountText: wallet.monthlyAmount.toStringAsFixed(2),
+                      detailText: 'يوم ${wallet.executionDay}',
+                      leadingWidget: _iconBadge(
+                        iconName: wallet.icon,
+                        colorHex: wallet.iconColor,
+                        size: 42,
+                      ),
+                      tint: _colorFromHex(wallet.iconColor),
+                      onTap: () => _openJarInfoSheet(wallet),
+                      onDelete: null,
                     ),
                   )
                   .toList(),
@@ -854,6 +1227,12 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
           accent: const Color(0xFFC65D2E),
           actionLabel: 'إضافة دين أو قسط',
           onAction: () => _showDebtDialog(),
+          showHeaderAction: false,
+          footerAction: _thinAddButton(
+            label: 'إضافة دين أو قسط',
+            onPressed: () => _showDebtDialog(),
+            tint: const Color(0xFFC65D2E),
+          ),
           children: _budget.debts.isEmpty
               ? [
                   _emptyState(
@@ -861,14 +1240,30 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
                 ]
               : _budget.debts
                   .map(
-                    (debt) => _planTile(
-                      title: debt.name,
-                      subtitle:
-                          '${debt.amount.toStringAsFixed(2)} • يوم ${debt.executionDay}',
-                      leading: Icons.credit_card_rounded,
-                      tint: const Color(0xFFC65D2E),
-                      onTap: () => _showDebtDialog(current: debt),
-                      onDelete: () async {
+                    (debt) {
+                      final recurring = _linkedRecurringDebt(debt);
+                      final iconName = recurring?.icon ?? 'receipt';
+                      final iconColor = recurring?.iconColor ?? '#c65d2e';
+                      return _planTile(
+                        title: debt.name,
+                        amountText: debt.amount.toStringAsFixed(2),
+                        detailText: 'يوم ${debt.executionDay}',
+                        leadingWidget: _iconBadge(
+                          iconName: iconName,
+                          colorHex: iconColor,
+                          size: 42,
+                        ),
+                        tint: _colorFromHex(iconColor),
+                        onTap: () => _openDebtInfoSheet(debt),
+                        onDelete: () async {
+                        final approved = await _confirmDeletion(
+                          title: 'حذف الدين',
+                          message:
+                              'سيتم حذف "${debt.name}" من خطة الميزانية. هل تريد المتابعة؟',
+                        );
+                        if (!approved) {
+                          return;
+                        }
                         final recurring = _linkedRecurringDebt(debt);
                         if (recurring != null) {
                           await widget.cubit.deleteRecurringTransaction(recurring.id);
@@ -880,12 +1275,181 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
                                 .toList(),
                           ),
                         );
-                      },
-                    ),
+                        },
+                      );
+                    },
                   )
                   .toList(),
         ),
+        const SizedBox(height: 18),
+        _planSummaryCard(),
       ],
+    );
+  }
+
+  Widget _planSummaryCard() {
+    final theme = Theme.of(context);
+    const accent = Color(0xFF0E5A47);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0E5A47), Color(0xFF197C64)],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: 0.18),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.summarize_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'ملخص الخطة',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _summaryRow(
+            label: 'إجمالي الدخل',
+            value: _totalIncome,
+            light: true,
+          ),
+          _summaryRow(
+            label: 'إجمالي المخصصات (المخطط)',
+            value: _allocationsTotal,
+            light: true,
+          ),
+          _summaryRow(
+            label: 'غير المخصص',
+            value: _unallocated,
+            light: true,
+            emphasize: _unallocated < 0,
+          ),
+          Divider(
+            height: 20,
+            thickness: 1,
+            color: Colors.white.withValues(alpha: 0.22),
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  'متوقع التوفير',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.92),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const Text(
+                  '10٪',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _approxSavingsHint.toStringAsFixed(2),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'تقدير أولي — يتحدث مع نشاطك وصرفك خلال الشهر.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: Colors.white.withValues(alpha: 0.78),
+              fontWeight: FontWeight.w600,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryRow({
+    required String label,
+    required double value,
+    required bool light,
+    bool emphasize = false,
+    bool valueBold = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: light
+                    ? Colors.white.withValues(alpha: 0.92)
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          Text(
+            value.toStringAsFixed(2),
+            style: TextStyle(
+              color: emphasize
+                  ? const Color(0xFFFFD180)
+                  : (light ? Colors.white : Theme.of(context).colorScheme.onSurface),
+              fontWeight: valueBold ? FontWeight.w900 : FontWeight.w800,
+              fontSize: valueBold ? 15 : 14,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -897,6 +1461,8 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
     required String actionLabel,
     required VoidCallback onAction,
     required List<Widget> children,
+    bool showHeaderAction = true,
+    Widget? footerAction,
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -955,19 +1521,381 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: onAction,
-              icon: const Icon(Icons.add_rounded),
-              label: Text(actionLabel),
+          if (showHeaderAction) ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: onAction,
+                icon: const Icon(Icons.add_rounded),
+                label: Text(actionLabel),
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
+            const SizedBox(height: 14),
+          ],
           ...children,
+          if (footerAction != null) ...[
+            const SizedBox(height: 10),
+            footerAction,
+          ],
         ],
       ),
     );
+  }
+
+  Widget _thinAddButton({
+    required String label,
+    required VoidCallback onPressed,
+    required Color tint,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(Icons.add_rounded, color: tint, size: 18),
+        label: Text(
+          label,
+          style: TextStyle(
+            color: tint,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size.fromHeight(42),
+          side: BorderSide(color: tint.withValues(alpha: 0.45)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+      ),
+    );
+  }
+
+  Widget _incomePlanTile({
+    required IncomeSourceEntity income,
+    required String iconName,
+    required String iconColorHex,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    final tint = _colorFromHex(iconColorHex);
+    final meta = income.isVariable
+        ? 'دخل متغير • يدوي'
+        : 'يوم ${income.date} • ${_incomeTypeLabel(income.type)}';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: tint.withValues(alpha: 0.14),
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _iconBadge(
+                      iconName: iconName,
+                      colorHex: iconColorHex,
+                      size: 42,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            income.name,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            meta,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                income.isVariable
+                    ? 'متغير'
+                    : income.amount.toStringAsFixed(2),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openIncomeInfoSheet(IncomeSourceEntity income) async {
+    final theme = Theme.of(context);
+    final state = widget.cubit.state;
+    final recurring = _linkedRecurringIncome(income);
+
+    String resolveWalletName() {
+      final wallets = state.wallets;
+      for (final w in wallets) {
+        if (w.id == income.targetWalletId) return w.name;
+      }
+      return income.targetWalletId.isEmpty ? 'غير محدد' : income.targetWalletId;
+    }
+
+    final incomeTypeLabel = income.isVariable ? 'متغير' : 'ثابت';
+    final executionLabel = recurring == null
+        ? _incomeTypeLabel(income.type)
+        : _incomeTypeLabel(recurring.executionType);
+    final recurrenceLabel =
+        _recurrenceLabel(recurring?.recurrencePattern ?? 'monthly');
+    final monthlyDay = (recurring?.dayOfMonth ?? income.date).clamp(1, 28);
+    final timeLabel = (recurring?.scheduledTime?.isNotEmpty == true)
+        ? _formatClockTime(recurring!.scheduledTime!)
+        : null;
+    final executionDayLine = income.isVariable
+        ? 'يدوي'
+        : timeLabel != null
+            ? 'يوم $monthlyDay • $timeLabel'
+            : 'يوم $monthlyDay';
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        final height = MediaQuery.of(context).size.height * 0.48;
+        return SizedBox(
+          height: height.clamp(340.0, 460.0),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              children: [
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: Text(
+                    'تفاصيل الدخل',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: theme.colorScheme.outlineVariant
+                            .withValues(alpha: 0.6),
+                      ),
+                    ),
+                    child: ListView(
+                      padding: const EdgeInsets.all(14),
+                      children: [
+                        _detailsBlocks(
+                          blocks: [
+                            _DetailsBlock.wide('اسم الدخل', income.name),
+                            _DetailsBlock.narrow('نوع الدخل', incomeTypeLabel),
+                            _DetailsBlock.narrow(
+                              'قيمة الدخل',
+                              income.isVariable
+                                  ? 'متغير'
+                                  : income.amount.toStringAsFixed(2),
+                            ),
+                            _DetailsBlock.narrow(
+                              'محفظة الإيداع',
+                              resolveWalletName(),
+                            ),
+                            _DetailsBlock.narrow('نوع التكرار', recurrenceLabel),
+                            _DetailsBlock.wide('يوم التنفيذ', executionDayLine),
+                            _DetailsBlock.narrow('طريقة التنفيذ', executionLabel),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _showIncomeDialog(current: income);
+                    },
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('تعديل الدخل'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(52),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _detailsBlocks({required List<_DetailsBlock> blocks}) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        const spacing = 10.0;
+
+        // Force a 2-column layout (even on phones) to reduce scrolling.
+        double itemWidth() {
+          return ((w - spacing) / 2).clamp(140.0, w);
+        }
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final block in blocks)
+              SizedBox(
+                width: itemWidth(),
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
+                  decoration: BoxDecoration(
+                    color:
+                        colorScheme.surfaceContainerHighest.withValues(alpha: 0.22),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        block.label,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: colorScheme.onSurface,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        block.value,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurfaceVariant,
+                          height: 1.15,
+                          fontSize: 12.5,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _fundingBreakdownText(List<(String, double)> funding) {
+    final cleaned = funding.where((f) => f.$1.isNotEmpty && f.$2 > 0).toList();
+    if (cleaned.isEmpty) {
+      return 'لا يوجد';
+    }
+    final nameById = <String, String>{
+      for (final inc in _budget.incomeSources) inc.id: inc.name,
+    };
+    return cleaned
+        .map((f) {
+          final name = nameById[f.$1] ?? f.$1;
+          final amount = f.$2.toStringAsFixed(0);
+          return '$name $amount';
+        })
+        .join('\n');
+  }
+
+  String _recurrenceLabel(String pattern) {
+    switch (pattern) {
+      case 'daily':
+        return 'يومي';
+      case 'weekly':
+        return 'أسبوعي';
+      case 'biweekly':
+        return 'كل أسبوعين';
+      case 'every_3_weeks':
+        return 'كل 3 أسابيع';
+      case 'monthly':
+        return 'شهري';
+      case 'every_2_months':
+        return 'كل شهرين';
+      case 'every_3_months':
+        return 'كل 3 شهور';
+      case 'every_6_months':
+        return 'كل 6 شهور';
+      case 'yearly':
+        return 'سنوي';
+      case 'manual-variable':
+        return 'يدوي';
+      default:
+        return pattern;
+    }
+  }
+
+  String _formatClockTime(String value) {
+    final parts = value.split(':');
+    if (parts.length != 2) return value;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return value;
+    final h = hour.clamp(0, 23);
+    final m = minute.clamp(0, 59);
+    final suffix = h >= 12 ? 'مساء' : 'صباحًا';
+    final displayH = (h % 12 == 0) ? 12 : (h % 12);
+    final mm = m.toString().padLeft(2, '0');
+    return '$displayH:$mm $suffix';
+  }
+
+  String _reminderLabel({
+    required String recurrencePattern,
+    required String executionType,
+    required int reminderLeadDays,
+  }) {
+    if (executionType != 'confirm') {
+      return 'لا يوجد';
+    }
+    final value = reminderLeadDays.clamp(0, 3);
+    final isHourly = recurrencePattern == 'daily' ||
+        recurrencePattern == 'weekly' ||
+        recurrencePattern == 'biweekly' ||
+        recurrencePattern == 'every_3_weeks';
+    if (isHourly) {
+      return value == 0 ? 'في الوقت المحدد' : 'قبلها بـ $value ساعة';
+    }
+    return value == 0 ? 'في نفس اليوم' : 'مبكر بـ $value يوم';
   }
 
   Widget _summaryMini({
@@ -1007,8 +1935,10 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
 
   Widget _planTile({
     required String title,
-    required String subtitle,
-    required IconData leading,
+    required String amountText,
+    required String detailText,
+    IconData? leading,
+    Widget? leadingWidget,
     required Color tint,
     required VoidCallback onTap,
     bool emphasize = false,
@@ -1042,53 +1972,74 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
           child: Column(
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: tint.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(leading, color: tint, size: 20),
-                  ),
-                  const SizedBox(width: 12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Text(
-                          title,
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(subtitle),
-                        if (emphasize) ...[
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: tint.withValues(alpha: 0.16),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              'دخل معلق يحتاج إجراء',
-                              style: TextStyle(
-                                color: tint,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 12,
-                              ),
-                            ),
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: tint.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(14),
                           ),
-                        ],
+                          child: Center(
+                            child: leadingWidget ??
+                                Icon(leading ?? Icons.category,
+                                    color: tint, size: 20),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                title,
+                                style:
+                                    const TextStyle(fontWeight: FontWeight.w800),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(detailText),
+                              if (emphasize) ...[
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: tint.withValues(alpha: 0.16),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    'دخل معلق يحتاج إجراء',
+                                    style: TextStyle(
+                                      color: tint,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Icon(Icons.edit_outlined, color: tint, size: 20),
+                  Text(
+                    amountText,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                    ),
+                  ),
                   if (onDelete != null)
                     IconButton(
                       onPressed: onDelete,
@@ -1137,12 +2088,45 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
     }
   }
 
-  RecurringTransactionEntity? _linkedRecurringIncome(String incomeId) {
+  Widget _iconBadge({
+    required String iconName,
+    required String colorHex,
+    double size = 48,
+  }) {
+    final color = _colorFromHex(colorHex);
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(size * 0.34),
+      ),
+      child: Center(
+        child: AppIconPickerDialog.iconWidgetForName(
+          iconName,
+          color: color,
+          size: size * 0.48,
+        ),
+      ),
+    );
+  }
+
+  Color _colorFromHex(String value) {
+    final hex = value.replaceAll('#', '');
+    final normalized = hex.length == 6 ? 'FF$hex' : hex;
+    final intColor = int.tryParse(normalized, radix: 16) ?? 0xFF165B47;
+    return Color(intColor);
+  }
+
+  RecurringTransactionEntity? _linkedRecurringIncome(IncomeSourceEntity source) {
     final linked = widget.cubit.state.recurringTransactions.where(
       (item) =>
           item.type == 'income' &&
           item.budgetScope == 'within-budget' &&
-          item.incomeSourceId == incomeId,
+          (item.incomeSourceId == source.id ||
+              ((item.incomeSourceId ?? '').isEmpty &&
+                  item.name == source.name &&
+                  item.walletId == source.targetWalletId)),
     );
     if (linked.isEmpty) {
       return null;
@@ -1163,8 +2147,7 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
           item.type == 'expense' &&
           item.budgetScope == 'within-budget' &&
           item.isDebtOrSubscription &&
-          item.name == debt.name &&
-          item.amount == debt.amount,
+          item.name == debt.name,
     );
     if (fallback.isEmpty) {
       return null;
@@ -1271,6 +2254,16 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
   }
 }
 
+class AllocationEditorResult {
+  const AllocationEditorResult({
+    this.entity,
+    this.deleteRequested = false,
+  });
+
+  final AllocationEntity? entity;
+  final bool deleteRequested;
+}
+
 class _AllocationEditorScreen extends StatefulWidget {
   const _AllocationEditorScreen({
     required this.current,
@@ -1292,6 +2285,8 @@ class _AllocationEditorScreenState extends State<_AllocationEditorScreen> {
   late String _selectedColor;
   late String _rolloverBehavior;
   late List<AllocationFundingEntity> _funding;
+
+  bool get _canDelete => widget.current != null;
 
   @override
   void initState() {
@@ -1368,8 +2363,28 @@ class _AllocationEditorScreenState extends State<_AllocationEditorScreen> {
     });
   }
 
-  void _removeFundingSource(String id) {
+  Future<void> _removeFundingSource(String id) async {
     if (_funding.length == 1) {
+      return;
+    }
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف مصدر التمويل'),
+        content: const Text('سيتم حذف مصدر التمويل من هذا المخصص. هل تريد المتابعة؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+    if (approved != true || !mounted) {
       return;
     }
     setState(() {
@@ -1391,16 +2406,41 @@ class _AllocationEditorScreenState extends State<_AllocationEditorScreen> {
       return;
     }
     Navigator.of(context).pop(
-      AllocationEntity(
-        id: widget.current?.id ?? widget.idFactory('alloc'),
-        name: name,
-        icon: _selectedIcon,
-        iconColor: _selectedColor,
-        rolloverBehavior: _rolloverBehavior,
-        funding: cleaned,
-        categories: widget.current?.categories ?? const [],
+      AllocationEditorResult(
+        entity: AllocationEntity(
+          id: widget.current?.id ?? widget.idFactory('alloc'),
+          name: name,
+          icon: _selectedIcon,
+          iconColor: _selectedColor,
+          rolloverBehavior: _rolloverBehavior,
+          funding: cleaned,
+          categories: widget.current?.categories ?? const [],
+        ),
       ),
     );
+  }
+
+  Future<void> _delete() async {
+    if (!_canDelete) return;
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف المخصص'),
+        content: const Text('سيتم حذف هذا المخصص من خطة الميزانية. هل تريد المتابعة؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+    if (approved != true || !mounted) return;
+    Navigator.of(context).pop(const AllocationEditorResult(deleteRequested: true));
   }
 
   void _showMessage(String message) {
@@ -1643,6 +2683,24 @@ class _AllocationEditorScreenState extends State<_AllocationEditorScreen> {
                   .toList(),
             ),
           ),
+          if (_canDelete) ...[
+            const SizedBox(height: 14),
+            _EditorSection(
+              title: 'إدارة المخصص',
+              subtitle: 'يمكنك حذف المخصص من هنا بدل جعل الحذف سهل الوصول بالخطأ.',
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  onPressed: _delete,
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  label: const Text('حذف المخصص'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFC62828),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1872,4 +2930,18 @@ Color _colorFromHex(String value) {
   final normalized = hex.length == 6 ? 'FF$hex' : hex;
   final intColor = int.tryParse(normalized, radix: 16) ?? 0xFF165B47;
   return Color(intColor);
+}
+
+enum _DetailsBlockSize { narrow, wide }
+
+class _DetailsBlock {
+  const _DetailsBlock(this.size, this.label, this.value);
+  final _DetailsBlockSize size;
+  final String label;
+  final String value;
+
+  static _DetailsBlock narrow(String label, String value) =>
+      _DetailsBlock(_DetailsBlockSize.narrow, label, value);
+  static _DetailsBlock wide(String label, String value) =>
+      _DetailsBlock(_DetailsBlockSize.wide, label, value);
 }

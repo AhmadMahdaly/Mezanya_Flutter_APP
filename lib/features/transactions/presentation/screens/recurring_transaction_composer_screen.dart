@@ -50,6 +50,7 @@ class _RecurringTransactionComposerScreenState
     extends State<RecurringTransactionComposerScreen> {
   final _nameController = TextEditingController();
   final _amountController = TextEditingController();
+  final _debtPrincipalController = TextEditingController();
   final _notesController = TextEditingController();
 
   late String _type;
@@ -96,6 +97,10 @@ class _RecurringTransactionComposerScreenState
             ? ''
             : recurring.amount.toStringAsFixed(2);
     _notesController.text = recurring?.notes ?? '';
+    final principal = recurring?.debtPrincipalTotal;
+    _debtPrincipalController.text = principal != null && principal > 0
+        ? principal.toStringAsFixed(2)
+        : '';
     _isVariableIncome = recurring?.isVariableIncome ?? false;
     _isDebtOrSubscription = recurring?.isDebtOrSubscription ?? true;
     _monthlyDay = (recurring?.dayOfMonth ?? 1).clamp(1, 28);
@@ -123,6 +128,7 @@ class _RecurringTransactionComposerScreenState
   void dispose() {
     _nameController.dispose();
     _amountController.dispose();
+    _debtPrincipalController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -220,9 +226,26 @@ class _RecurringTransactionComposerScreenState
                 controller: _amountController,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText:
+                      _type == 'expense' && _withinBudget && _isDebtOrSubscription
+                          ? 'مبلغ القسط أو الدفعة'
+                          : 'المبلغ',
+                  prefixIcon: const Icon(Icons.payments_rounded),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (_type == 'expense' && _withinBudget && _isDebtOrSubscription) ...[
+              TextField(
+                controller: _debtPrincipalController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
-                  labelText: 'المبلغ',
-                  prefixIcon: Icon(Icons.payments_rounded),
+                  labelText: 'إجمالي الدين (الأصل)',
+                  helperText:
+                      'مثل ١٠٠٠٠ — يُستخدم في الميزانية لحساب المتبقي والنسبة',
+                  prefixIcon: Icon(Icons.account_balance_outlined),
                 ),
               ),
               const SizedBox(height: 12),
@@ -884,6 +907,16 @@ class _RecurringTransactionComposerScreenState
         _type == 'income' && _withinBudget && _isVariableIncome
             ? 'manual'
             : _executionType;
+    final principalRaw =
+        double.tryParse(_debtPrincipalController.text.trim());
+    final debtPrincipalTotal = (_type == 'expense' &&
+            _withinBudget &&
+            _isDebtOrSubscription &&
+            principalRaw != null &&
+            principalRaw > 0)
+        ? principalRaw
+        : null;
+
     final recurring = RecurringTransactionEntity(
       id: widget.initialRecurring?.id ?? '',
       name: _nameController.text.trim(),
@@ -917,6 +950,7 @@ class _RecurringTransactionComposerScreenState
       isVariableIncome: _isVariableIncome,
       isDebtOrSubscription:
           _type == 'expense' && _withinBudget && _isDebtOrSubscription,
+      debtPrincipalTotal: debtPrincipalTotal,
       notes: _notesController.text.trim().isEmpty
           ? null
           : _notesController.text.trim(),
@@ -953,6 +987,7 @@ class _RecurringTransactionComposerScreenState
         categoryIds: recurring.categoryIds,
         isVariableIncome: recurring.isVariableIncome,
         isDebtOrSubscription: recurring.isDebtOrSubscription,
+        debtPrincipalTotal: recurring.debtPrincipalTotal,
         notes: recurring.notes,
       );
     } else {
@@ -979,6 +1014,7 @@ class _RecurringTransactionComposerScreenState
           categoryIds: recurring.categoryIds,
           isVariableIncome: recurring.isVariableIncome,
           isDebtOrSubscription: recurring.isDebtOrSubscription,
+          debtPrincipalTotal: recurring.debtPrincipalTotal,
           notes: recurring.notes,
         ),
       );

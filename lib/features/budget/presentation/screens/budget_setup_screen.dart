@@ -4,12 +4,18 @@ import '../../../../core/widgets/app_icon_picker_dialog.dart';
 import '../../../app_state/presentation/cubits/app_cubit.dart';
 import '../../../transactions/domain/entities/recurring_transaction_entity.dart';
 import '../../../transactions/presentation/screens/recurring_transaction_composer_screen.dart';
+import '../../../wallets/presentation/screens/jar_editor_screen.dart';
 import '../../domain/entities/budget_setup_entity.dart';
 
 class BudgetSetupScreen extends StatefulWidget {
-  const BudgetSetupScreen({super.key, required this.cubit});
+  const BudgetSetupScreen({
+    super.key,
+    required this.cubit,
+    this.displayMonth,
+  });
 
   final AppCubit cubit;
+  final DateTime? displayMonth;
 
   @override
   State<BudgetSetupScreen> createState() => _BudgetSetupScreenState();
@@ -17,11 +23,28 @@ class BudgetSetupScreen extends StatefulWidget {
 
 class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
   late BudgetSetupEntity _budget;
+  late DateTime _displayMonth;
+  bool _futureMonthNoticeShown = false;
+
+  static const List<String> _weekdayNames = <String>[
+    'الإثنين',
+    'الثلاثاء',
+    'الأربعاء',
+    'الخميس',
+    'الجمعة',
+    'السبت',
+    'الأحد',
+  ];
 
   @override
   void initState() {
     super.initState();
     _budget = widget.cubit.state.budgetSetup;
+    final initialMonth = widget.displayMonth ?? DateTime.now();
+    _displayMonth = DateTime(initialMonth.year, initialMonth.month, 1);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showFutureMonthNoticeIfNeeded();
+    });
   }
 
   @override
@@ -52,6 +75,75 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
   double get _committed => _allocationsTotal + _linkedTotal + _debtsTotal;
 
   double get _unallocated => _totalIncome - _committed;
+
+  bool get _isCurrentMonthSetup {
+    final now = DateTime.now();
+    return _displayMonth.year == now.year && _displayMonth.month == now.month;
+  }
+
+  bool get _isFutureMonthSetup {
+    final nowMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
+    return _displayMonth.isAfter(nowMonth);
+  }
+
+  String get _displayMonthName {
+    const monthNames = <String>[
+      'يناير',
+      'فبراير',
+      'مارس',
+      'أبريل',
+      'مايو',
+      'يونيو',
+      'يوليو',
+      'أغسطس',
+      'سبتمبر',
+      'أكتوبر',
+      'نوفمبر',
+      'ديسمبر',
+    ];
+    return '${monthNames[_displayMonth.month - 1]} ${_displayMonth.year}';
+  }
+
+  String get _screenHeading => _isCurrentMonthSetup
+      ? 'إعداد الشهر الحالي'
+      : 'خطة إعداد شهر $_displayMonthName';
+
+  String get _screenSubheading => _isCurrentMonthSetup
+      ? 'هذه الصفحة خاصة بتخطيط ميزانية الشهر الحالي.'
+      : 'أنت الآن تعد خطة شهر قادم مسبقًا قبل بداية تنفيذه.';
+
+  Future<void> _showFutureMonthNoticeIfNeeded() async {
+    if (!mounted || !_isFutureMonthSetup || _futureMonthNoticeShown) {
+      return;
+    }
+    _futureMonthNoticeShown = true;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Text('خطة شهر قادم: $_displayMonthName'),
+        content: const Text(
+          'هذه الصفحة خاصة بإعداد شهر قادم وليست للشهر الحالي. يمكنك المتابعة أو التحويل مباشرة إلى إعداد الشهر الحالي.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              setState(() {
+                final now = DateTime.now();
+                _displayMonth = DateTime(now.year, now.month, 1);
+              });
+            },
+            child: const Text('خطة الشهر الحالي'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('أوكي'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _saveBudget(BudgetSetupEntity next) async {
     final normalized = next.copyWith(
@@ -92,7 +184,8 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
       '$prefix-${DateTime.now().microsecondsSinceEpoch}';
 
   Future<void> _openIncomeComposer() async {
-    final recurring = await Navigator.of(context).push<RecurringTransactionEntity>(
+    final result =
+        await Navigator.of(context).push<RecurringTransactionComposerResult>(
       MaterialPageRoute(
         builder: (_) => RecurringTransactionComposerScreen(
           cubit: widget.cubit,
@@ -103,6 +196,7 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
         fullscreenDialog: true,
       ),
     );
+    final recurring = result?.recurring;
     if (recurring == null) {
       return;
     }
@@ -148,728 +242,285 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
   }
 
   Future<void> _showIncomeDialog({IncomeSourceEntity? current}) async {
+    if (current == null) {
+      await _openIncomeComposer();
+      return;
+    }
+
     final wallets = widget.cubit.state.wallets;
-    final recurringList = widget.cubit.state.recurringTransactions;
     final fallbackWalletId =
         wallets.isNotEmpty ? wallets.first.id : 'wallet-cash-default';
-    final linkedRecurring = current == null
-        ? null
-        : recurringList.where((r) => r.incomeSourceId == current.id).isNotEmpty
-            ? recurringList.firstWhere((r) => r.incomeSourceId == current.id)
-            : null;
-    final nameController = TextEditingController(text: current?.name ?? '');
-    final amountController =
-        TextEditingController(text: (current?.amount ?? 0).toStringAsFixed(0));
-    final dayController = TextEditingController(
-        text: (current?.date ?? _budget.startDay).toString());
-    final timeController = TextEditingController(
-      text: linkedRecurring?.notes?.startsWith('time:') == true
-          ? linkedRecurring!.notes!.replaceFirst('time:', '')
-          : '09:00',
-    );
-    var isVariable = current?.isVariable ?? false;
-    var type = current?.type ?? 'confirm';
-    var walletId = current?.targetWalletId ?? fallbackWalletId;
-    var recurrencePattern = linkedRecurring?.recurrencePattern ?? 'monthly';
-    var recurrenceWeekday = linkedRecurring?.weekday ?? DateTime.now().weekday;
-    var selectedIcon = linkedRecurring?.icon ?? 'cash';
-    var selectedColor = linkedRecurring?.iconColor ?? '#0f9d7a';
-
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text(current == null ? 'ط¥ط¶ط§ظپط© ط¯ط®ظ„ ط¬ط¯ظٹط¯' : 'طھط¹ط¯ظٹظ„ ط§ظ„ط¯ط®ظ„'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: nameController,
-                      decoration: const InputDecoration(labelText: 'ط§ط³ظ… ط§ظ„ط¯ط®ظ„'),
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: isVariable ? 'variable' : 'fixed',
-                      decoration:
-                          const InputDecoration(labelText: 'ط·ط¨ظٹط¹ط© ط§ظ„ط¯ط®ظ„'),
-                      items: const [
-                        DropdownMenuItem(value: 'fixed', child: Text('ط«ط§ط¨طھ')),
-                        DropdownMenuItem(
-                            value: 'variable', child: Text('ط؛ظٹط± ط«ط§ط¨طھ')),
-                      ],
-                      onChanged: (v) {
-                        if (v == null) return;
-                        setDialogState(() {
-                          isVariable = v == 'variable';
-                          if (isVariable) type = 'manual';
-                        });
-                      },
-                    ),
-                    if (!isVariable) ...[
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: amountController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'ط§ظ„ظ‚ظٹظ…ط©'),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: dayController,
-                        keyboardType: TextInputType.number,
-                        decoration:
-                            const InputDecoration(labelText: 'ظٹظˆظ… ط§ظ„ط¥ط¶ط§ظپط©'),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        initialValue: recurrencePattern,
-                        decoration: const InputDecoration(
-                          labelText: 'ط§ظ„طھظƒط±ط§ط±',
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                              value: 'weekly', child: Text('ظ…ط±ط© ظƒظ„ ط£ط³ط¨ظˆط¹')),
-                          DropdownMenuItem(
-                              value: 'biweekly', child: Text('ظ…ط±ط© ظƒظ„ ط£ط³ط¨ظˆط¹ظٹظ†')),
-                          DropdownMenuItem(
-                              value: 'monthly', child: Text('ظ…ط±ط© ظƒظ„ ط´ظ‡ط±')),
-                          DropdownMenuItem(
-                              value: 'every_2_months',
-                              child: Text('ظ…ط±ط© ظƒظ„ ط´ظ‡ط±ظٹظ†')),
-                          DropdownMenuItem(
-                              value: 'every_3_months',
-                              child: Text('ظ…ط±ط© ظƒظ„ 3 ط´ظ‡ظˆط±')),
-                          DropdownMenuItem(
-                              value: 'every_6_months',
-                              child: Text('ظ…ط±ط© ظƒظ„ 6 ط´ظ‡ظˆط±')),
-                          DropdownMenuItem(
-                              value: 'yearly', child: Text('ظ…ط±ط© ظƒظ„ ط³ظ†ط©')),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) {
-                            setDialogState(() => recurrencePattern = v);
-                          }
-                        },
-                      ),
-                      if (recurrencePattern == 'weekly' ||
-                          recurrencePattern == 'biweekly') ...[
-                        const SizedBox(height: 8),
-                        DropdownButtonFormField<int>(
-                          initialValue: recurrenceWeekday,
-                          decoration: const InputDecoration(
-                              labelText: 'ط§ظ„ظٹظˆظ… ظپظٹ ط§ظ„ط£ط³ط¨ظˆط¹'),
-                          items: const [
-                            DropdownMenuItem(value: 1, child: Text('ط§ظ„ط§ط«ظ†ظٹظ†')),
-                            DropdownMenuItem(value: 2, child: Text('ط§ظ„ط«ظ„ط§ط«ط§ط،')),
-                            DropdownMenuItem(value: 3, child: Text('ط§ظ„ط£ط±ط¨ط¹ط§ط،')),
-                            DropdownMenuItem(value: 4, child: Text('ط§ظ„ط®ظ…ظٹط³')),
-                            DropdownMenuItem(value: 5, child: Text('ط§ظ„ط¬ظ…ط¹ط©')),
-                            DropdownMenuItem(value: 6, child: Text('ط§ظ„ط³ط¨طھ')),
-                            DropdownMenuItem(value: 7, child: Text('ط§ظ„ط£ط­ط¯')),
-                          ],
-                          onChanged: (v) {
-                            if (v != null) {
-                              setDialogState(() => recurrenceWeekday = v);
-                            }
-                          },
-                        ),
-                      ],
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: timeController,
-                        decoration: const InputDecoration(
-                          labelText: 'ط§ظ„ظˆظ‚طھ (ط§ط®طھظٹط§ط±ظٹ)',
-                          hintText: '09:00',
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        initialValue: type,
-                        decoration:
-                            const InputDecoration(labelText: 'ظ†ظˆط¹ ط§ظ„طھظ†ظپظٹط°'),
-                        items: const [
-                          DropdownMenuItem(
-                              value: 'auto', child: Text('طھظ„ظ‚ط§ط¦ظٹ')),
-                          DropdownMenuItem(
-                              value: 'confirm', child: Text('طھط£ظƒظٹط¯')),
-                          DropdownMenuItem(
-                              value: 'manual', child: Text('ظٹط¯ظˆظٹ')),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) setDialogState(() => type = v);
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            final picked = await AppIconPickerDialog.show(
-                              context,
-                              initialIconName: selectedIcon,
-                              initialColorHex: selectedColor,
-                              title: 'ط§ط®طھظٹط§ط± ط£ظٹظ‚ظˆظ†ط© ظ…طµط¯ط± ط§ظ„ط¯ط®ظ„',
-                            );
-                            if (picked == null) return;
-                            setDialogState(() {
-                              selectedIcon = picked.iconName;
-                              selectedColor = picked.colorHex;
-                            });
-                          },
-                          icon: const Icon(Icons.palette_outlined),
-                          label: const Text('ط§ط®طھظٹط§ط± ط§ظ„ط£ظٹظ‚ظˆظ†ط© ظˆط§ظ„ظ„ظˆظ†'),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: walletId,
-                      decoration: const InputDecoration(
-                          labelText: 'طھظ†ط²ظ„ ظپظٹ ظ…ط­ظپط¸ط© ظپط¹ظ„ظٹط©'),
-                      items: wallets
-                          .map(
-                            (wallet) => DropdownMenuItem(
-                                value: wallet.id, child: Text(wallet.name)),
-                          )
-                          .toList(),
-                      onChanged: (v) {
-                        if (v != null) setDialogState(() => walletId = v);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('ط¥ظ„ط؛ط§ط،'),
-                ),
-                FilledButton(
-                  onPressed: () async {
-                    final name = nameController.text.trim();
-                    final amount =
-                        double.tryParse(amountController.text.trim()) ?? 0;
-                    final day = (int.tryParse(dayController.text.trim()) ??
-                            _budget.startDay)
-                        .clamp(1, 31);
-                    if (name.isEmpty) return;
-                    if (!isVariable && amount <= 0) return;
-
-                    final saved = IncomeSourceEntity(
-                      id: current?.id ?? _id('income'),
-                      name: name,
-                      amount: isVariable ? 0 : amount,
-                      date: day,
-                      type: isVariable ? 'manual' : type,
-                      targetWalletId: walletId,
-                      isVariable: isVariable,
-                      isDefault: current?.isDefault ?? false,
-                    );
-                    final next = current == null
-                        ? [..._budget.incomeSources, saved]
-                        : _budget.incomeSources
-                            .map((e) => e.id == current.id ? saved : e)
-                            .toList();
-                    await _saveBudget(_budget.copyWith(incomeSources: next));
-
-                    final recurringEntity = RecurringTransactionEntity(
-                      id: linkedRecurring?.id ?? _id('rec'),
-                      name: name,
-                      type: 'income',
-                      amount: isVariable ? 0 : amount,
-                      dayOfMonth: day.clamp(1, 28),
-                      executionType: isVariable ? 'manual' : type,
-                      walletId: walletId,
-                      budgetScope: 'within-budget',
-                      recurrencePattern:
-                          isVariable ? 'monthly' : recurrencePattern,
-                      icon: selectedIcon,
-                      iconColor: selectedColor,
-                      weekday: (recurrencePattern == 'weekly' ||
-                              recurrencePattern == 'biweekly')
-                          ? recurrenceWeekday
-                          : null,
-                      incomeSourceId: saved.id,
-                      notes: timeController.text.trim().isEmpty
-                          ? null
-                          : 'time:${timeController.text.trim()}',
-                    );
-                    if (linkedRecurring == null) {
-                      await widget.cubit.addRecurringTransaction(
-                        name: recurringEntity.name,
-                        type: recurringEntity.type,
-                        amount: recurringEntity.amount,
-                        dayOfMonth: recurringEntity.dayOfMonth,
-                        executionType: recurringEntity.executionType,
-                        walletId: recurringEntity.walletId,
-                        budgetScope: recurringEntity.budgetScope,
-                        recurrencePattern: recurringEntity.recurrencePattern,
-                        icon: recurringEntity.icon,
-                        iconColor: recurringEntity.iconColor,
-                        weekday: recurringEntity.weekday,
-                        incomeSourceId: recurringEntity.incomeSourceId,
-                        notes: recurringEntity.notes,
-                      );
-                    } else {
-                      await widget.cubit
-                          .updateRecurringTransaction(recurringEntity);
-                    }
-                    if (!mounted) return;
-                    Navigator.of(this.context).pop();
-                  },
-                  child: const Text('طھظ…'),
-                ),
-              ],
-            );
-          },
+    final linkedRecurring = _linkedRecurringIncome(current.id);
+    final draftRecurring = linkedRecurring ??
+        RecurringTransactionEntity(
+          id: '',
+          name: current.name,
+          type: 'income',
+          amount: current.isVariable ? 0 : current.amount,
+          dayOfMonth: current.date.clamp(1, 28),
+          executionType: current.isVariable ? 'manual' : current.type,
+          walletId: current.targetWalletId.isEmpty
+              ? fallbackWalletId
+              : current.targetWalletId,
+          budgetScope: 'within-budget',
+          recurrencePattern: 'monthly',
+          icon: 'cash',
+          iconColor: '#0f9d7a',
+          incomeSourceId: current.id,
+          isVariableIncome: current.isVariable,
+          isDebtOrSubscription: false,
         );
-      },
+
+    final result =
+        await Navigator.of(context).push<RecurringTransactionComposerResult>(
+      MaterialPageRoute(
+        builder: (_) => RecurringTransactionComposerScreen(
+          cubit: widget.cubit,
+          initialType: 'income',
+          initialWithinBudget: true,
+          initialRecurring: draftRecurring,
+          returnOnSave: true,
+          allowDelete: true,
+        ),
+        fullscreenDialog: true,
+      ),
     );
+
+    if (result == null) {
+      return;
+    }
+
+    if (result.deleteRequested) {
+      final linked = widget.cubit.state.recurringTransactions
+          .where((r) => r.incomeSourceId == current.id)
+          .toList();
+      for (final rec in linked) {
+        await widget.cubit.deleteRecurringTransaction(rec.id);
+      }
+      final next = _budget.incomeSources.where((e) => e.id != current.id).toList();
+      await _saveBudget(_budget.copyWith(incomeSources: next));
+      return;
+    }
+
+    final recurring = result.recurring;
+    if (recurring == null) {
+      return;
+    }
+
+    final saved = IncomeSourceEntity(
+      id: current.id,
+      name: recurring.name,
+      amount: recurring.isVariableIncome ? 0 : recurring.amount,
+      date: recurring.dayOfMonth.clamp(1, 31),
+      type: recurring.isVariableIncome ? 'manual' : recurring.executionType,
+      targetWalletId: recurring.walletId,
+      isVariable: recurring.isVariableIncome,
+      isDefault: current.isDefault,
+    );
+
+    final next = _budget.incomeSources
+        .map((e) => e.id == current.id ? saved : e)
+        .toList();
+    await _saveBudget(_budget.copyWith(incomeSources: next));
+
+    if (linkedRecurring == null) {
+      await widget.cubit.addRecurringTransaction(
+        name: recurring.name,
+        type: recurring.type,
+        amount: recurring.amount,
+        dayOfMonth: recurring.dayOfMonth,
+        executionType: recurring.executionType,
+        walletId: recurring.walletId,
+        budgetScope: recurring.budgetScope,
+        recurrencePattern: recurring.recurrencePattern,
+        icon: recurring.icon,
+        iconColor: recurring.iconColor,
+        weekday: recurring.weekday,
+        weekdays: recurring.weekdays,
+        monthOfYear: recurring.monthOfYear,
+        scheduledTime: recurring.scheduledTime,
+        reminderLeadDays: recurring.reminderLeadDays,
+        incomeSourceId: current.id,
+        categoryIds: recurring.categoryIds,
+        isVariableIncome: recurring.isVariableIncome,
+        isDebtOrSubscription: false,
+        notes: recurring.notes,
+      );
+    } else {
+      await widget.cubit.updateRecurringTransaction(
+        linkedRecurring.copyWith(
+          name: recurring.name,
+          type: recurring.type,
+          amount: recurring.amount,
+          dayOfMonth: recurring.dayOfMonth,
+          executionType: recurring.executionType,
+          walletId: recurring.walletId,
+          budgetScope: recurring.budgetScope,
+          recurrencePattern: recurring.recurrencePattern,
+          icon: recurring.icon,
+          iconColor: recurring.iconColor,
+          weekday: recurring.weekday,
+          weekdays: recurring.weekdays,
+          monthOfYear: recurring.monthOfYear,
+          scheduledTime: recurring.scheduledTime,
+          reminderLeadDays: recurring.reminderLeadDays,
+          incomeSourceId: current.id,
+          categoryIds: recurring.categoryIds,
+          isVariableIncome: recurring.isVariableIncome,
+          isDebtOrSubscription: false,
+          notes: recurring.notes,
+        ),
+      );
+    }
   }
 
   Future<void> _showAllocationDialog({AllocationEntity? current}) async {
     if (_budget.incomeSources.isEmpty) return;
-    final nameController = TextEditingController(text: current?.name ?? '');
-    var selectedIcon = current?.icon ?? 'category';
-    var selectedColor = current?.iconColor ?? '#165b47';
-    var rollover = current?.rolloverBehavior ?? 'to-savings';
-    var funding = List<AllocationFundingEntity>.from(
-      current?.funding ??
-          [
-            AllocationFundingEntity(
-              id: _id('fund'),
-              incomeSourceId: _budget.incomeSources.first.id,
-              plannedAmount: 0,
-            ),
-          ],
+    final allocation = await Navigator.of(context).push<AllocationEntity>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => _AllocationEditorScreen(
+          current: current,
+          incomeSources: _budget.incomeSources,
+          idFactory: _id,
+        ),
+      ),
     );
-
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text(current == null ? 'ط¥ط¶ط§ظپط© ظ…ط®طµطµ ط¬ط¯ظٹط¯' : 'طھط¹ط¯ظٹظ„ ط§ظ„ظ…ط®طµطµ'),
-              content: SizedBox(
-                width: 500,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextField(
-                        controller: nameController,
-                        decoration:
-                            const InputDecoration(labelText: 'ط§ط³ظ… ط§ظ„ظ…ط®طµطµ'),
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            final picked = await AppIconPickerDialog.show(
-                              context,
-                              initialIconName: selectedIcon,
-                              initialColorHex: selectedColor,
-                              title: 'ط§ط®طھظٹط§ط± ط£ظٹظ‚ظˆظ†ط© ط§ظ„ظ…ط®طµطµ',
-                            );
-                            if (picked == null) return;
-                            setDialogState(() {
-                              selectedIcon = picked.iconName;
-                              selectedColor = picked.colorHex;
-                            });
-                          },
-                          icon: const Icon(Icons.palette_outlined),
-                          label: const Text('ط§ط®طھظٹط§ط± ط§ظ„ط£ظٹظ‚ظˆظ†ط© ظˆط§ظ„ظ„ظˆظ†'),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        initialValue: rollover,
-                        decoration: const InputDecoration(
-                            labelText: 'ط³ظ„ظˆظƒ ط§ظ„ط¨ط§ظ‚ظٹ ط¢ط®ط± ط§ظ„ط¯ظˆط±ط©'),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'keep',
-                            child: Text('ظٹط³طھظ…ط± ظ„ظ„ط¯ظˆط±ط© ط§ظ„ط¬ط¯ظٹط¯ط©'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'to-savings',
-                            child: Text('ظٹطھط­ظˆظ„ ظ„ظ„طھظˆظپظٹط±'),
-                          ),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) setDialogState(() => rollover = v);
-                        },
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          const Expanded(child: Text('ظ…طµط§ط¯ط± ط§ظ„طھظ…ظˆظٹظ„')),
-                          TextButton(
-                            onPressed: () {
-                              setDialogState(() {
-                                funding = [
-                                  ...funding,
-                                  AllocationFundingEntity(
-                                    id: _id('fund'),
-                                    incomeSourceId:
-                                        _budget.incomeSources.first.id,
-                                    plannedAmount: 0,
-                                  ),
-                                ];
-                              });
-                            },
-                            child: const Text('ط¥ط¶ط§ظپط© ظ…طµط¯ط±'),
-                          ),
-                        ],
-                      ),
-                      ...funding.map(
-                        (item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: DropdownButtonFormField<String>(
-                                  initialValue: item.incomeSourceId,
-                                  items: _budget.incomeSources
-                                      .map(
-                                        (income) => DropdownMenuItem(
-                                          value: income.id,
-                                          child: Text(income.name),
-                                        ),
-                                      )
-                                      .toList(),
-                                  onChanged: (v) {
-                                    if (v == null) return;
-                                    setDialogState(() {
-                                      funding = funding
-                                          .map(
-                                            (f) => f.id == item.id
-                                                ? AllocationFundingEntity(
-                                                    id: f.id,
-                                                    incomeSourceId: v,
-                                                    plannedAmount:
-                                                        f.plannedAmount,
-                                                  )
-                                                : f,
-                                          )
-                                          .toList();
-                                    });
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: TextFormField(
-                                  initialValue:
-                                      item.plannedAmount.toStringAsFixed(0),
-                                  keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(
-                                      labelText: 'ط§ظ„ظ…ط¨ظ„ط؛'),
-                                  onChanged: (v) {
-                                    final n = double.tryParse(v) ?? 0;
-                                    setDialogState(() {
-                                      funding = funding
-                                          .map(
-                                            (f) => f.id == item.id
-                                                ? AllocationFundingEntity(
-                                                    id: f.id,
-                                                    incomeSourceId:
-                                                        f.incomeSourceId,
-                                                    plannedAmount: n,
-                                                  )
-                                                : f,
-                                          )
-                                          .toList();
-                                    });
-                                  },
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: funding.length == 1
-                                    ? null
-                                    : () => setDialogState(() {
-                                          funding = funding
-                                              .where((f) => f.id != item.id)
-                                              .toList();
-                                        }),
-                                icon: const Icon(Icons.delete_outline),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('ط¥ظ„ط؛ط§ط،'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    final name = nameController.text.trim();
-                    final cleaned = funding
-                        .where((f) =>
-                            f.incomeSourceId.isNotEmpty && f.plannedAmount > 0)
-                        .toList();
-                    if (name.isEmpty || cleaned.isEmpty) return;
-                    final allocation = AllocationEntity(
-                      id: current?.id ?? _id('alloc'),
-                      name: name,
-                      icon: selectedIcon,
-                      iconColor: selectedColor,
-                      rolloverBehavior: rollover,
-                      funding: cleaned,
-                      categories: current?.categories ?? const [],
-                    );
-                    final next = current == null
-                        ? [..._budget.allocations, allocation]
-                        : _budget.allocations
-                            .map((e) => e.id == current.id ? allocation : e)
-                            .toList();
-                    _saveBudget(_budget.copyWith(allocations: next));
-                    Navigator.pop(context);
-                  },
-                  child: const Text('طھظ…'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
+    if (allocation == null) {
+      return;
+    }
+    final next = current == null
+        ? [..._budget.allocations, allocation]
+        : _budget.allocations
+            .map((e) => e.id == current.id ? allocation : e)
+            .toList();
+    await _saveBudget(_budget.copyWith(allocations: next));
   }
 
   Future<void> _showLinkedDialog({LinkedWalletEntity? current}) async {
     if (_budget.incomeSources.isEmpty) return;
-    final nameController = TextEditingController(text: current?.name ?? '');
-    var selectedIcon = current?.icon ?? 'savings';
-    var selectedColor = current?.iconColor ?? '#0f766e';
-    final amountController = TextEditingController(
-        text: (current?.monthlyAmount ?? 0).toStringAsFixed(0));
-    final dayController =
-        TextEditingController(text: (current?.executionDay ?? 1).toString());
-    var fundingSource =
-        current?.fundingSource ?? _budget.incomeSources.first.id;
-
-    await showDialog<void>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(current == null ? 'ط¥ط¶ط§ظپط© ط­طµط§ظ„ط©' : 'طھط¹ط¯ظٹظ„ ط§ظ„ط­طµط§ظ„ط©'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'ط§ط³ظ… ط§ظ„ط­طµط§ظ„ط©'),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    final picked = await AppIconPickerDialog.show(
-                      context,
-                      initialIconName: selectedIcon,
-                      initialColorHex: selectedColor,
-                      title: 'ط§ط®طھظٹط§ط± ط£ظٹظ‚ظˆظ†ط© ط§ظ„ط­طµط§ظ„ط©',
-                    );
-                    if (picked == null) return;
-                    setDialogState(() {
-                      selectedIcon = picked.iconName;
-                      selectedColor = picked.colorHex;
-                    });
-                  },
-                  icon: const Icon(Icons.palette_outlined),
-                  label: const Text('ط§ط®طھظٹط§ط± ط§ظ„ط£ظٹظ‚ظˆظ†ط© ظˆط§ظ„ظ„ظˆظ†'),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: amountController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'ط§ظ„طھظ…ظˆظٹظ„ ط§ظ„ط´ظ‡ط±ظٹ'),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: dayController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'ظٹظˆظ… ط§ظ„طھظ†ظپظٹط°'),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: fundingSource,
-                decoration: const InputDecoration(labelText: 'ظ…طµط¯ط± ط§ظ„طھظ…ظˆظٹظ„'),
-                items: _budget.incomeSources
-                    .map(
-                      (income) => DropdownMenuItem(
-                          value: income.id, child: Text(income.name)),
-                    )
-                    .toList(),
-                onChanged: (v) {
-                  if (v != null) {
-                    setDialogState(() => fundingSource = v);
-                  }
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('ط¥ظ„ط؛ط§ط،'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final name = nameController.text.trim();
-                final amount =
-                    double.tryParse(amountController.text.trim()) ?? 0;
-                final day =
-                    (int.tryParse(dayController.text.trim()) ?? 1).clamp(1, 31);
-                if (name.isEmpty || amount <= 0) return;
-                final entity = LinkedWalletEntity(
-                  id: current?.id ?? _id('linked'),
-                  name: name,
-                  balance: current?.balance ?? 0,
-                  monthlyAmount: amount,
-                  executionDay: day,
-                  fundingSource: fundingSource,
-                  funding: current?.funding ??
-                      [
-                        LinkedWalletEntityFunding(
-                          id: _id('fund-linked'),
-                          incomeSourceId: fundingSource,
-                          plannedAmount: amount,
-                        ),
-                      ],
-                  icon: selectedIcon,
-                  iconColor: selectedColor,
-                  automationType: current?.automationType ?? 'confirm',
-                  categories: current?.categories ?? const [],
-                );
-                final next = current == null
-                    ? [..._budget.linkedWallets, entity]
-                    : _budget.linkedWallets
-                        .map((e) => e.id == current.id ? entity : e)
-                        .toList();
-                _saveBudget(_budget.copyWith(linkedWallets: next));
-                Navigator.pop(context);
-              },
-              child: const Text('طھظ…'),
-            ),
-          ],
+    final result = await Navigator.of(context).push<JarEditorResult>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => JarEditorScreen(
+          current: current,
+          incomeSources: _budget.incomeSources,
+          idFactory: _id,
         ),
       ),
     );
+    if (result == null) {
+      return;
+    }
+    if (result.deleteRequested && current != null) {
+      final next = _budget.linkedWallets.where((e) => e.id != current.id).toList();
+      await _saveBudget(_budget.copyWith(linkedWallets: next));
+      return;
+    }
+    final entity = result.entity;
+    if (entity == null) {
+      return;
+    }
+    final next = current == null
+        ? [..._budget.linkedWallets, entity]
+        : _budget.linkedWallets
+            .map((e) => e.id == current.id ? entity : e)
+            .toList();
+    await _saveBudget(_budget.copyWith(linkedWallets: next));
   }
 
   Future<void> _showDebtDialog({DebtEntity? current}) async {
     if (_budget.incomeSources.isEmpty) return;
-    final nameController = TextEditingController(text: current?.name ?? '');
-    final amountController =
-        TextEditingController(text: (current?.amount ?? 0).toStringAsFixed(0));
-    final dayController =
-        TextEditingController(text: (current?.executionDay ?? 1).toString());
-    var type = current?.type ?? 'confirm';
-    var fundingSource =
-        current?.fundingSource ?? _budget.incomeSources.first.id;
+    final linkedRecurring = current == null ? null : _linkedRecurringDebt(current);
+    final draftRecurring = linkedRecurring ??
+        RecurringTransactionEntity(
+          id: current?.recurringTransactionId ?? '',
+          name: current?.name ?? '',
+          type: 'expense',
+          amount: current?.amount ?? 0,
+          dayOfMonth: (current?.executionDay ?? 1).clamp(1, 28),
+          executionType: current?.type ?? 'confirm',
+          walletId: widget.cubit.state.wallets.isNotEmpty
+              ? widget.cubit.state.wallets.first.id
+              : '',
+          budgetScope: 'within-budget',
+          recurrencePattern: 'monthly',
+          icon: 'receipt',
+          iconColor: '#c65d2e',
+          incomeSourceId: null,
+          isDebtOrSubscription: true,
+        );
 
-    await showDialog<void>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(
-              current == null ? 'ط¥ط¶ط§ظپط© ط¯ظٹظ† ط£ظˆ ظ‚ط³ط·' : 'طھط¹ط¯ظٹظ„ ط§ظ„ط¯ظٹظ† ط£ظˆ ط§ظ„ظ‚ط³ط·'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'ط§ظ„ط§ط³ظ…'),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: amountController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'ط§ظ„ظ‚ظٹظ…ط© ط§ظ„ط´ظ‡ط±ظٹط©'),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: dayController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'ظٹظˆظ… ط§ظ„طھظ†ظپظٹط°'),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: type,
-                decoration: const InputDecoration(labelText: 'ظ†ظˆط¹ ط§ظ„طھظ†ظپظٹط°'),
-                items: const [
-                  DropdownMenuItem(value: 'auto', child: Text('طھظ„ظ‚ط§ط¦ظٹ')),
-                  DropdownMenuItem(value: 'confirm', child: Text('طھط£ظƒظٹط¯')),
-                  DropdownMenuItem(value: 'manual', child: Text('ظٹط¯ظˆظٹ')),
-                ],
-                onChanged: (v) {
-                  if (v != null) setDialogState(() => type = v);
-                },
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: fundingSource,
-                decoration: const InputDecoration(labelText: 'ظٹظ…ظˆظ„ ظ…ظ†'),
-                items: _budget.incomeSources
-                    .map(
-                      (income) => DropdownMenuItem(
-                          value: income.id, child: Text(income.name)),
-                    )
-                    .toList(),
-                onChanged: (v) {
-                  if (v != null) setDialogState(() => fundingSource = v);
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('ط¥ظ„ط؛ط§ط،'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final name = nameController.text.trim();
-                final amount =
-                    double.tryParse(amountController.text.trim()) ?? 0;
-                final day =
-                    (int.tryParse(dayController.text.trim()) ?? 1).clamp(1, 31);
-                if (name.isEmpty || amount <= 0) return;
-                final entity = DebtEntity(
-                  id: current?.id ?? _id('debt'),
-                  name: name,
-                  amount: amount,
-                  executionDay: day,
-                  type: type,
-                  fundingSource: fundingSource,
-                );
-                final next = current == null
-                    ? [..._budget.debts, entity]
-                    : _budget.debts
-                        .map((e) => e.id == current.id ? entity : e)
-                        .toList();
-                _saveBudget(_budget.copyWith(debts: next));
-                Navigator.pop(context);
-              },
-              child: const Text('طھظ…'),
-            ),
-          ],
+    final result =
+        await Navigator.of(context).push<RecurringTransactionComposerResult>(
+      MaterialPageRoute(
+        builder: (_) => RecurringTransactionComposerScreen(
+          cubit: widget.cubit,
+          initialType: 'expense',
+          initialWithinBudget: true,
+          initialRecurring: draftRecurring,
+          returnOnSave: true,
         ),
+        fullscreenDialog: true,
       ),
     );
+    final recurring = result?.recurring;
+    if (recurring == null) {
+      return;
+    }
+
+    final recurringId =
+        linkedRecurring?.id ?? current?.recurringTransactionId ?? _id('rec');
+    final debt = DebtEntity(
+      id: current?.id ?? _id('debt'),
+      name: recurring.name,
+      amount: recurring.amount,
+      executionDay: recurring.dayOfMonth.clamp(1, 31),
+      type: recurring.executionType,
+      fundingSource:
+          current?.fundingSource ??
+          (_budget.incomeSources.isNotEmpty ? _budget.incomeSources.first.id : ''),
+      recurringTransactionId: recurringId,
+    );
+
+    final nextDebts = current == null
+        ? [..._budget.debts, debt]
+        : _budget.debts.map((item) => item.id == current.id ? debt : item).toList();
+    await _saveBudget(_budget.copyWith(debts: nextDebts));
+
+    final recurringToSave = recurring.copyWith(
+      id: recurringId,
+      type: 'expense',
+      budgetScope: 'within-budget',
+      isDebtOrSubscription: true,
+      allocationId: null,
+      targetJarId: null,
+    );
+
+    if (linkedRecurring == null) {
+      await widget.cubit.addRecurringTransaction(
+        id: recurringId,
+        name: recurringToSave.name,
+        type: recurringToSave.type,
+        amount: recurringToSave.amount,
+        dayOfMonth: recurringToSave.dayOfMonth,
+        executionType: recurringToSave.executionType,
+        walletId: recurringToSave.walletId,
+        budgetScope: recurringToSave.budgetScope,
+        recurrencePattern: recurringToSave.recurrencePattern,
+        icon: recurringToSave.icon,
+        iconColor: recurringToSave.iconColor,
+        weekday: recurringToSave.weekday,
+        weekdays: recurringToSave.weekdays,
+        monthOfYear: recurringToSave.monthOfYear,
+        scheduledTime: recurringToSave.scheduledTime,
+        reminderLeadDays: recurringToSave.reminderLeadDays,
+        isDebtOrSubscription: true,
+        notes: recurringToSave.notes,
+      );
+    } else {
+      await widget.cubit.updateRecurringTransaction(recurringToSave);
+    }
   }
 
   @override
@@ -880,6 +531,65 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
       children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+          decoration: BoxDecoration(
+            color: _isFutureMonthSetup
+                ? const Color(0xFFFFF4E8)
+                : colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: _isFutureMonthSetup
+                  ? const Color(0xFFE6B36A)
+                  : colorScheme.outlineVariant.withValues(alpha: 0.45),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: _isFutureMonthSetup
+                      ? const Color(0xFFF3D4A4)
+                      : const Color(0xFFDDEFEA),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  _isFutureMonthSetup
+                      ? Icons.schedule_rounded
+                      : Icons.calendar_month_rounded,
+                  color: _isFutureMonthSetup
+                      ? const Color(0xFF9A5A11)
+                      : const Color(0xFF0E5A47),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _screenHeading,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _screenSubheading,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
           decoration: BoxDecoration(
@@ -1049,38 +759,28 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
           accent: const Color(0xFF0F9D7A),
           actionLabel: 'إضافة دخل',
           onAction: _openIncomeComposer,
-          children: _budget.incomeSources.isEmpty
-              ? [_emptyState('أضف أول دخل لتبدأ توزيع الميزانية.')]
-              : _budget.incomeSources
-                  .map(
-                    (income) => _planTile(
-                      title: income.name,
-                      subtitle: income.isVariable
-                          ? 'دخل متغير يتم تسجيله يدويًا'
-                          : '${_incomeTypeLabel(income.type)} • يوم ${income.date} • ${income.amount.toStringAsFixed(2)}',
-                      leading: Icons.payments_rounded,
-                      tint: const Color(0xFF0F9D7A),
-                      onTap: () => _showIncomeDialog(current: income),
-                      onDelete: income.isDefault
-                          ? null
-                          : () async {
-                              final linked = widget
-                                  .cubit.state.recurringTransactions
-                                  .where((r) => r.incomeSourceId == income.id)
-                                  .toList();
-                              for (final rec in linked) {
-                                await widget.cubit
-                                    .deleteRecurringTransaction(rec.id);
-                              }
-                              final next = _budget.incomeSources
-                                  .where((e) => e.id != income.id)
-                                  .toList();
-                              await _saveBudget(
-                                  _budget.copyWith(incomeSources: next));
-                            },
-                    ),
-                  )
-                  .toList(),
+          children: () {
+            if (_budget.incomeSources.isEmpty) {
+              return <Widget>[_emptyState('أضف أول دخل لتبدأ توزيع الميزانية.')];
+            }
+
+            return <Widget>[
+              ..._budget.incomeSources.map(
+                (income) {
+                  return _planTile(
+                    title: income.name,
+                    subtitle: income.isVariable
+                        ? 'دخل متغير يتم تسجيله يدويًا'
+                        : '${_incomeTypeLabel(income.type)} • يوم ${income.date} • ${income.amount.toStringAsFixed(2)}',
+                    leading: Icons.payments_rounded,
+                    tint: const Color(0xFF0F9D7A),
+                    onTap: () => _showIncomeDialog(current: income),
+                    onDelete: null,
+                  );
+                },
+              ),
+            ];
+          }(),
         ),
         const SizedBox(height: 14),
         _plannerSection(
@@ -1168,8 +868,12 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
                       leading: Icons.credit_card_rounded,
                       tint: const Color(0xFFC65D2E),
                       onTap: () => _showDebtDialog(current: debt),
-                      onDelete: () {
-                        _saveBudget(
+                      onDelete: () async {
+                        final recurring = _linkedRecurringDebt(debt);
+                        if (recurring != null) {
+                          await widget.cubit.deleteRecurringTransaction(recurring.id);
+                        }
+                        await _saveBudget(
                           _budget.copyWith(
                             debts: _budget.debts
                                 .where((e) => e.id != debt.id)
@@ -1307,45 +1011,94 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
     required IconData leading,
     required Color tint,
     required VoidCallback onTap,
+    bool emphasize = false,
+    Widget? extra,
     VoidCallback? onDelete,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: tint.withValues(alpha: 0.06),
+        color: tint.withValues(alpha: emphasize ? 0.12 : 0.06),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: tint.withValues(alpha: 0.14)),
+        border: Border.all(
+          color: tint.withValues(alpha: emphasize ? 0.30 : 0.14),
+          width: emphasize ? 1.6 : 1,
+        ),
+        boxShadow: emphasize
+            ? [
+                BoxShadow(
+                  color: tint.withValues(alpha: 0.12),
+                  blurRadius: 18,
+                  offset: const Offset(0, 10),
+                ),
+              ]
+            : null,
       ),
-      child: ListTile(
+      child: InkWell(
         onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        leading: Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: tint.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(leading, color: tint, size: 20),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.w800),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(subtitle),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.edit_outlined, color: tint, size: 20),
-            if (onDelete != null)
-              IconButton(
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline),
+        borderRadius: BorderRadius.circular(22),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: tint.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(leading, color: tint, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(subtitle),
+                        if (emphasize) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: tint.withValues(alpha: 0.16),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              'دخل معلق يحتاج إجراء',
+                              style: TextStyle(
+                                color: tint,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Icon(Icons.edit_outlined, color: tint, size: 20),
+                  if (onDelete != null)
+                    IconButton(
+                      onPressed: onDelete,
+                      icon: const Icon(Icons.delete_outline),
+                    ),
+                ],
               ),
-          ],
+              if (extra != null) extra,
+            ],
+          ),
         ),
       ),
     );
@@ -1383,4 +1136,740 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
         return type;
     }
   }
+
+  RecurringTransactionEntity? _linkedRecurringIncome(String incomeId) {
+    final linked = widget.cubit.state.recurringTransactions.where(
+      (item) =>
+          item.type == 'income' &&
+          item.budgetScope == 'within-budget' &&
+          item.incomeSourceId == incomeId,
+    );
+    if (linked.isEmpty) {
+      return null;
+    }
+    return linked.first;
+  }
+
+  RecurringTransactionEntity? _linkedRecurringDebt(DebtEntity debt) {
+    final recurringList = widget.cubit.state.recurringTransactions;
+    if ((debt.recurringTransactionId ?? '').isNotEmpty) {
+      final exact = recurringList.where((item) => item.id == debt.recurringTransactionId);
+      if (exact.isNotEmpty) {
+        return exact.first;
+      }
+    }
+    final fallback = recurringList.where(
+      (item) =>
+          item.type == 'expense' &&
+          item.budgetScope == 'within-budget' &&
+          item.isDebtOrSubscription &&
+          item.name == debt.name &&
+          item.amount == debt.amount,
+    );
+    if (fallback.isEmpty) {
+      return null;
+    }
+    return fallback.first;
+  }
+
+  DateTime? _parseClockTime(String? value) {
+    if (value == null || value.isEmpty || !value.contains(':')) {
+      return null;
+    }
+    final parts = value.split(':');
+    if (parts.length != 2) {
+      return null;
+    }
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) {
+      return null;
+    }
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day, hour, minute);
+  }
+
+  DateTime? _nextOccurrence(RecurringTransactionEntity recurring, DateTime now) {
+    final time = _parseClockTime(recurring.scheduledTime) ?? now;
+    DateTime atDate(DateTime day) =>
+        DateTime(day.year, day.month, day.day, time.hour, time.minute);
+
+    if (recurring.recurrencePattern == 'manual-variable') {
+      return null;
+    }
+    if (recurring.recurrencePattern == 'daily') {
+      final today = atDate(now);
+      return today.isAfter(now) ? today : today.add(const Duration(days: 1));
+    }
+    if (recurring.weekdays.isNotEmpty) {
+      for (var offset = 0; offset <= 21; offset++) {
+        final day = now.add(Duration(days: offset));
+        if (recurring.weekdays.contains(day.weekday)) {
+          final candidate = atDate(day);
+          if (candidate.isAfter(now)) {
+            return candidate;
+          }
+        }
+      }
+    }
+    if (recurring.recurrencePattern == 'monthly' ||
+        recurring.recurrencePattern == 'every_2_months' ||
+        recurring.recurrencePattern == 'every_3_months' ||
+        recurring.recurrencePattern == 'every_6_months') {
+      final interval = switch (recurring.recurrencePattern) {
+        'every_2_months' => 2,
+        'every_3_months' => 3,
+        'every_6_months' => 6,
+        _ => 1,
+      };
+      for (var step = 0; step < 12; step++) {
+        final monthDate = DateTime(now.year, now.month + (step * interval));
+        final candidate = DateTime(
+          monthDate.year,
+          monthDate.month,
+          recurring.dayOfMonth.clamp(1, 28),
+          time.hour,
+          time.minute,
+        );
+        if (candidate.isAfter(now)) {
+          return candidate;
+        }
+      }
+    }
+    if (recurring.recurrencePattern == 'yearly') {
+      final month = recurring.monthOfYear ?? now.month;
+      final thisYear = DateTime(
+        now.year,
+        month,
+        recurring.dayOfMonth.clamp(1, 28),
+        time.hour,
+        time.minute,
+      );
+      if (thisYear.isAfter(now)) {
+        return thisYear;
+      }
+      return DateTime(
+        now.year + 1,
+        month,
+        recurring.dayOfMonth.clamp(1, 28),
+        time.hour,
+        time.minute,
+      );
+    }
+    return null;
+  }
+
+  Duration _leadDuration(RecurringTransactionEntity recurring) {
+    final value = recurring.reminderLeadDays ?? 0;
+    if (recurring.recurrencePattern == 'daily' ||
+        recurring.recurrencePattern == 'weekly' ||
+        recurring.recurrencePattern == 'biweekly' ||
+        recurring.recurrencePattern == 'every_3_weeks') {
+      return Duration(hours: value.clamp(0, 3));
+    }
+    return Duration(days: value.clamp(0, 3));
+  }
+}
+
+class _AllocationEditorScreen extends StatefulWidget {
+  const _AllocationEditorScreen({
+    required this.current,
+    required this.incomeSources,
+    required this.idFactory,
+  });
+
+  final AllocationEntity? current;
+  final List<IncomeSourceEntity> incomeSources;
+  final String Function(String prefix) idFactory;
+
+  @override
+  State<_AllocationEditorScreen> createState() => _AllocationEditorScreenState();
+}
+
+class _AllocationEditorScreenState extends State<_AllocationEditorScreen> {
+  late final TextEditingController _nameController;
+  late String _selectedIcon;
+  late String _selectedColor;
+  late String _rolloverBehavior;
+  late List<AllocationFundingEntity> _funding;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.current?.name ?? '');
+    _selectedIcon = widget.current?.icon ?? 'category';
+    _selectedColor = widget.current?.iconColor ?? '#165b47';
+    _rolloverBehavior = widget.current?.rolloverBehavior ?? 'to-savings';
+    _funding = List<AllocationFundingEntity>.from(
+      widget.current?.funding ??
+          [
+            AllocationFundingEntity(
+              id: widget.idFactory('fund'),
+              incomeSourceId: widget.incomeSources.first.id,
+              plannedAmount: 0,
+            ),
+          ],
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  double get _totalPlanned => _funding.fold<double>(
+        0,
+        (sum, item) => sum + item.plannedAmount,
+      );
+
+  Future<void> _pickIcon() async {
+    final picked = await AppIconPickerDialog.show(
+      context,
+      initialIconName: _selectedIcon,
+      initialColorHex: _selectedColor,
+      title: 'اختيار أيقونة المخصص',
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    setState(() {
+      _selectedIcon = picked.iconName;
+      _selectedColor = picked.colorHex;
+    });
+  }
+
+  void _addFundingSource() {
+    setState(() {
+      _funding = [
+        ..._funding,
+        AllocationFundingEntity(
+          id: widget.idFactory('fund'),
+          incomeSourceId: widget.incomeSources.first.id,
+          plannedAmount: 0,
+        ),
+      ];
+    });
+  }
+
+  void _updateFundingSource(String id, {String? incomeSourceId, double? amount}) {
+    setState(() {
+      _funding = _funding
+          .map(
+            (item) => item.id == id
+                ? AllocationFundingEntity(
+                    id: item.id,
+                    incomeSourceId: incomeSourceId ?? item.incomeSourceId,
+                    plannedAmount: amount ?? item.plannedAmount,
+                  )
+                : item,
+          )
+          .toList();
+    });
+  }
+
+  void _removeFundingSource(String id) {
+    if (_funding.length == 1) {
+      return;
+    }
+    setState(() {
+      _funding = _funding.where((item) => item.id != id).toList();
+    });
+  }
+
+  void _save() {
+    final name = _nameController.text.trim();
+    final cleaned = _funding
+        .where((item) => item.incomeSourceId.isNotEmpty && item.plannedAmount > 0)
+        .toList();
+    if (name.isEmpty) {
+      _showMessage('اكتب اسمًا واضحًا للمخصص أولًا.');
+      return;
+    }
+    if (cleaned.isEmpty) {
+      _showMessage('أضف مصدر تمويل واحدًا على الأقل بقيمة أكبر من صفر.');
+      return;
+    }
+    Navigator.of(context).pop(
+      AllocationEntity(
+        id: widget.current?.id ?? widget.idFactory('alloc'),
+        name: name,
+        icon: _selectedIcon,
+        iconColor: _selectedColor,
+        rolloverBehavior: _rolloverBehavior,
+        funding: cleaned,
+        categories: widget.current?.categories ?? const [],
+      ),
+    );
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final accent = _colorFromHex(_selectedColor);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.current == null ? 'إضافة مخصص' : 'تعديل المخصص'),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+          child: FilledButton(
+            onPressed: _save,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(54),
+              backgroundColor: accent,
+            ),
+            child: Text(
+              widget.current == null ? 'إضافة المخصص' : 'حفظ التعديلات',
+            ),
+          ),
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(26),
+              gradient: LinearGradient(
+                colors: [
+                  accent.withValues(alpha: 0.95),
+                  accent.withValues(alpha: 0.72),
+                ],
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: accent.withValues(alpha: 0.22),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 68,
+                  height: 68,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: Center(
+                    child: AppIconPickerDialog.iconWidgetForName(
+                      _selectedIcon,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _nameController.text.trim().isEmpty
+                            ? 'مخصص جديد'
+                            : _nameController.text.trim(),
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _rolloverBehavior == 'keep'
+                            ? 'المتبقي يرحل إلى الشهر التالي'
+                            : 'المتبقي يتحول إلى التوفير',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.92),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'إجمالي التمويل ${_totalPlanned.toStringAsFixed(2)}',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          _EditorSection(
+            title: 'البيانات الأساسية',
+            subtitle: 'سمِّ المخصص واختر له أيقونة واضحة يسهل تمييزها.',
+            child: Column(
+              children: [
+                TextField(
+                  controller: _nameController,
+                  textDirection: TextDirection.rtl,
+                  decoration: const InputDecoration(
+                    labelText: 'اسم المخصص',
+                    hintText: 'مثل: البيت أو المواصلات أو المصروف اليومي',
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: _pickIcon,
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.35,
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: accent.withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Center(
+                            child: AppIconPickerDialog.iconWidgetForName(
+                              _selectedIcon,
+                              color: accent,
+                              size: 26,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'اختيار الأيقونة واللون',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'غيّر شكل المخصص ليظهر بوضوح في شاشة المتابعة.',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_left_rounded),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          _EditorSection(
+            title: 'المتبقي آخر الدورة',
+            subtitle: 'اختر كيف تريد التعامل مع الرصيد المتبقي من هذا المخصص.',
+            child: Column(
+              children: [
+                _ChoiceTile(
+                  title: 'يرحل إلى الشهر التالي',
+                  subtitle: 'يبقى المبلغ المتبقي داخل نفس المخصص في الدورة الجديدة.',
+                  selected: _rolloverBehavior == 'keep',
+                  onTap: () => setState(() => _rolloverBehavior = 'keep'),
+                ),
+                const SizedBox(height: 10),
+                _ChoiceTile(
+                  title: 'يتحول إلى التوفير',
+                  subtitle: 'ينتقل المتبقي تلقائيًا إلى التوفير بدل ترحيله.',
+                  selected: _rolloverBehavior == 'to-savings',
+                  onTap: () => setState(() => _rolloverBehavior = 'to-savings'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          _EditorSection(
+            title: 'مصادر التمويل',
+            subtitle: 'وزّع قيمة هذا المخصص على دخل واحد أو أكثر.',
+            trailing: TextButton.icon(
+              onPressed: _addFundingSource,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('إضافة مصدر'),
+            ),
+            child: Column(
+              children: _funding
+                  .map(
+                    (item) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _FundingCard(
+                        item: item,
+                        incomeSources: widget.incomeSources,
+                        canDelete: _funding.length > 1,
+                        onChanged: ({String? incomeSourceId, double? amount}) {
+                          _updateFundingSource(
+                            item.id,
+                            incomeSourceId: incomeSourceId,
+                            amount: amount,
+                          );
+                        },
+                        onDelete: () => _removeFundingSource(item.id),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditorSection extends StatelessWidget {
+  const _EditorSection({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+    this.trailing,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget child;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (trailing != null) trailing!,
+            ],
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _ChoiceTile extends StatelessWidget {
+  const _ChoiceTile({
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFF0E5A47).withValues(alpha: 0.10)
+              : colorScheme.surfaceContainerHighest.withValues(alpha: 0.26),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFF0E5A47)
+                : colorScheme.outlineVariant.withValues(alpha: 0.55),
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Icon(
+              selected
+                  ? Icons.radio_button_checked_rounded
+                  : Icons.radio_button_off_rounded,
+              color: selected
+                  ? const Color(0xFF0E5A47)
+                  : colorScheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FundingCard extends StatelessWidget {
+  const _FundingCard({
+    required this.item,
+    required this.incomeSources,
+    required this.canDelete,
+    required this.onChanged,
+    required this.onDelete,
+  });
+
+  final AllocationFundingEntity item;
+  final List<IncomeSourceEntity> incomeSources;
+  final bool canDelete;
+  final void Function({String? incomeSourceId, double? amount}) onChanged;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.28),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+        ),
+      ),
+      child: Column(
+        children: [
+          DropdownButtonFormField<String>(
+            initialValue: item.incomeSourceId,
+            decoration: const InputDecoration(
+              labelText: 'مصدر الدخل',
+            ),
+            items: incomeSources
+                .map(
+                  (income) => DropdownMenuItem(
+                    value: income.id,
+                    child: Text(income.name),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) {
+              if (value == null) {
+                return;
+              }
+              onChanged(incomeSourceId: value);
+            },
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            initialValue: item.plannedAmount == 0
+                ? ''
+                : item.plannedAmount.toStringAsFixed(0),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'المبلغ المخصص',
+              hintText: 'اكتب القيمة التي تريد تخصيصها',
+            ),
+            onChanged: (value) => onChanged(amount: double.tryParse(value) ?? 0),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton.icon(
+              onPressed: canDelete ? onDelete : null,
+              icon: const Icon(Icons.delete_outline_rounded),
+              label: const Text('حذف هذا المصدر'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Color _colorFromHex(String value) {
+  final hex = value.replaceAll('#', '');
+  final normalized = hex.length == 6 ? 'FF$hex' : hex;
+  final intColor = int.tryParse(normalized, radix: 16) ?? 0xFF165B47;
+  return Color(intColor);
 }

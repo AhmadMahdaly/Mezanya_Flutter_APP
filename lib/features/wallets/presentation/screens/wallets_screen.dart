@@ -6,6 +6,7 @@ import '../../../app_state/presentation/cubits/app_cubit.dart';
 import '../../../budget/domain/entities/budget_setup_entity.dart';
 import '../../../transactions/domain/entities/transaction_entity.dart';
 import '../../../transactions/presentation/widgets/transaction_details_sheet.dart';
+import 'jar_editor_screen.dart';
 import '../../domain/entities/wallet_entity.dart';
 
 class WalletsScreen extends StatefulWidget {
@@ -26,27 +27,28 @@ class _WalletsScreenState extends State<WalletsScreen> {
     final jarPreview = jars.take(3).toList();
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(8),
       children: [
         Row(
           children: [
             const Expanded(
               child: Text('المحافظ',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            ),
-            IconButton(
-              onPressed: () => _openWalletEditor(),
-              icon: const Icon(Icons.add_circle_outline),
-              tooltip: 'إضافة محفظة',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
             IconButton(
               onPressed: wallets.length < 2 ? null : _openTransferDialog,
               icon: const Icon(Icons.swap_horiz),
               tooltip: 'تحويل بين المحافظ',
             ),
+            IconButton(
+              onPressed: () => _openWalletEditor(),
+              icon: const Icon(Icons.add_circle_outline),
+              tooltip: 'إضافة محفظة',
+            ),
           ],
         ),
-        const SizedBox(height: 10),
+        // const SizedBox(height: 4),
         _FixedSectionBox(
           title: 'المحافظ',
           subtitle: 'المحافظ الفعلية الموجودة معك الآن',
@@ -59,7 +61,7 @@ class _WalletsScreenState extends State<WalletsScreen> {
                       .toList(),
                 ),
         ),
-        const SizedBox(height: 14),
+        // const SizedBox(height: 8),
         Row(
           children: [
             const Expanded(
@@ -73,7 +75,7 @@ class _WalletsScreenState extends State<WalletsScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        // const SizedBox(height: 8),
         _FixedSectionBox(
           title: 'الحصالات',
           subtitle: 'أوعية منطقية مرتبطة بخطة الميزانية',
@@ -111,10 +113,10 @@ class _WalletsScreenState extends State<WalletsScreen> {
       leading: _iconBubble(iconName: jar.icon, colorHex: jar.iconColor),
       title: Text(jar.name),
       subtitle: Text(
-        isSavings
-            ? 'حصالة افتراضية غير قابلة للحذف'
-            : 'شهريًا ${jar.monthlyAmount.toStringAsFixed(2)}',
-      ),
+          isSavings
+              ? 'حصالة افتراضية غير قابلة للحذف'
+              : 'شهريًا ${jar.monthlyAmount.toStringAsFixed(2)}',
+          style: const TextStyle(fontSize: 12)),
       trailing: Text(jar.balance.toStringAsFixed(2)),
     );
   }
@@ -913,237 +915,39 @@ class _WalletsScreenState extends State<WalletsScreen> {
 
   void _openJarEditor({LinkedWalletEntity? current}) {
     final incomes = widget.cubit.state.budgetSetup.incomeSources;
-    final nameController = TextEditingController(text: current?.name ?? '');
-    final balanceController =
-        TextEditingController(text: (current?.balance ?? 0).toStringAsFixed(0));
-    String selectedColor = current?.iconColor ?? '#0f766e';
-    String selectedIcon = current?.icon ?? 'savings';
-    String automationType = current?.automationType ?? 'confirm';
-    final dayController =
-        TextEditingController(text: (current?.executionDay ?? 1).toString());
-    var funding = List<LinkedWalletEntityFunding>.from(
-      current?.funding ??
-          [
-            LinkedWalletEntityFunding(
-              id: 'fund-${DateTime.now().millisecondsSinceEpoch}',
-              incomeSourceId: incomes.isNotEmpty ? incomes.first.id : '',
-              plannedAmount: 0,
-            ),
-          ],
-    );
-
-    showDialog<void>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialog) => AlertDialog(
-          title: Text(current == null ? 'إضافة حصالة' : 'تعديل الحصالة'),
-          content: SizedBox(
-            width: 560,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                      controller: nameController,
-                      decoration:
-                          const InputDecoration(labelText: 'اسم الحصالة')),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: balanceController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'الرصيد'),
-                  ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final picked = await AppIconPickerDialog.show(
-                          context,
-                          initialIconName: selectedIcon,
-                          initialColorHex: selectedColor,
-                          title: 'اختيار أيقونة الحصالة',
-                        );
-                        if (picked == null) return;
-                        setDialog(() {
-                          selectedIcon = picked.iconName;
-                          selectedColor = picked.colorHex;
-                        });
-                      },
-                      icon: const Icon(Icons.palette_outlined),
-                      label: const Text('اختيار الأيقونة واللون'),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      const Expanded(
-                          child: Text('المساهمات الشهرية (مصادر دخل متعددة)')),
-                      TextButton(
-                        onPressed: () => setDialog(() {
-                          funding.add(
-                            LinkedWalletEntityFunding(
-                              id: 'fund-${DateTime.now().millisecondsSinceEpoch}',
-                              incomeSourceId:
-                                  incomes.isNotEmpty ? incomes.first.id : '',
-                              plannedAmount: 0,
-                            ),
-                          );
-                        }),
-                        child: const Text('إضافة مصدر'),
-                      ),
-                    ],
-                  ),
-                  ...funding.map((f) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: DropdownButtonFormField<String>(
-                                initialValue: f.incomeSourceId.isEmpty
-                                    ? null
-                                    : f.incomeSourceId,
-                                items: incomes
-                                    .map((i) => DropdownMenuItem(
-                                        value: i.id, child: Text(i.name)))
-                                    .toList(),
-                                onChanged: (v) {
-                                  if (v == null) return;
-                                  setDialog(() {
-                                    funding = funding
-                                        .map((x) => x.id == f.id
-                                            ? LinkedWalletEntityFunding(
-                                                id: x.id,
-                                                incomeSourceId: v,
-                                                plannedAmount: x.plannedAmount)
-                                            : x)
-                                        .toList();
-                                  });
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextFormField(
-                                initialValue:
-                                    f.plannedAmount.toStringAsFixed(0),
-                                keyboardType: TextInputType.number,
-                                decoration:
-                                    const InputDecoration(labelText: 'المبلغ'),
-                                onChanged: (v) {
-                                  final n = double.tryParse(v) ?? 0;
-                                  setDialog(() {
-                                    funding = funding
-                                        .map((x) => x.id == f.id
-                                            ? LinkedWalletEntityFunding(
-                                                id: x.id,
-                                                incomeSourceId:
-                                                    x.incomeSourceId,
-                                                plannedAmount: n)
-                                            : x)
-                                        .toList();
-                                  });
-                                },
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: funding.length == 1
-                                  ? null
-                                  : () => setDialog(() => funding = funding
-                                      .where((x) => x.id != f.id)
-                                      .toList()),
-                              icon: const Icon(Icons.delete_outline),
-                            ),
-                          ],
-                        ),
-                      )),
-                  DropdownButtonFormField<String>(
-                    initialValue: automationType,
-                    decoration: const InputDecoration(labelText: 'نوع التنفيذ'),
-                    items: const [
-                      DropdownMenuItem(value: 'auto', child: Text('تلقائي')),
-                      DropdownMenuItem(
-                          value: 'confirm', child: Text('يحتاج تأكيد')),
-                      DropdownMenuItem(value: 'manual', child: Text('يدوي')),
-                    ],
-                    onChanged: (v) {
-                      if (v != null) setDialog(() => automationType = v);
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: dayController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                        labelText: 'يوم التحويل الشهري (1-28)'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            if (current != null)
-              TextButton(
-                onPressed: () async {
-                  if (current.id == 'linked-savings-default') return;
-                  await widget.cubit.deleteLinkedWallet(current.id);
-                  if (!mounted) return;
-                  Navigator.of(this.context).pop();
-                },
-                child: Text(
-                  current.id == 'linked-savings-default'
-                      ? 'حصالة افتراضية'
-                      : 'حذف',
-                  style: const TextStyle(color: Color(0xFFEF4444)),
-                ),
-              ),
-            TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('إلغاء')),
-            FilledButton(
-              onPressed: () async {
-                final name = nameController.text.trim();
-                if (name.isEmpty) return;
-                final day =
-                    (int.tryParse(dayController.text.trim()) ?? 1).clamp(1, 28);
-                final cleanedFunding = funding
-                    .where((f) =>
-                        f.incomeSourceId.isNotEmpty && f.plannedAmount > 0)
-                    .toList();
-                final monthlyAmount = cleanedFunding.fold<double>(
-                    0, (s, f) => s + f.plannedAmount);
-                final primary = cleanedFunding.isNotEmpty
-                    ? cleanedFunding.first.incomeSourceId
-                    : '';
-
-                final entity = LinkedWalletEntity(
-                  id: current?.id ??
-                      'linked-${DateTime.now().millisecondsSinceEpoch}',
-                  name: name,
-                  balance: double.tryParse(balanceController.text.trim()) ?? 0,
-                  monthlyAmount: monthlyAmount,
-                  executionDay: day,
-                  fundingSource: primary,
-                  funding: cleanedFunding,
-                  icon: selectedIcon,
-                  iconColor: selectedColor,
-                  automationType: automationType,
-                  categories: current?.categories ?? const [],
-                );
-                if (current == null) {
-                  await widget.cubit.addLinkedWallet(entity);
-                } else {
-                  await widget.cubit.updateLinkedWallet(entity);
-                }
-                if (!mounted) return;
-                Navigator.of(this.context).pop();
-              },
-              child: const Text('حفظ'),
-            ),
-          ],
+    Navigator.of(context)
+        .push<JarEditorResult>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => JarEditorScreen(
+          current: current,
+          incomeSources: incomes,
+          idFactory: (prefix) =>
+              '$prefix-${DateTime.now().millisecondsSinceEpoch}',
         ),
       ),
-    );
+    )
+        .then((result) async {
+      if (result == null) {
+        return;
+      }
+      if (result.deleteRequested && current != null) {
+        if (current.id == 'linked-savings-default') {
+          return;
+        }
+        await widget.cubit.deleteLinkedWallet(current.id);
+        return;
+      }
+      final entity = result.entity;
+      if (entity == null) {
+        return;
+      }
+      if (current == null) {
+        await widget.cubit.addLinkedWallet(entity);
+      } else {
+        await widget.cubit.updateLinkedWallet(entity);
+      }
+    });
   }
 
   Color _parseColor(String hex) {
@@ -1262,9 +1066,9 @@ class _FixedSectionBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: AspectRatio(
-        aspectRatio: 1.6,
+        aspectRatio: 1.4,
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1278,21 +1082,23 @@ class _FixedSectionBox extends StatelessWidget {
               //             .colorScheme
               //             .onSurface
               //             .withValues(alpha: 0.5))),
-              const SizedBox(height: 8),
+              // const SizedBox(height: 8),
               Expanded(
                 child: SingleChildScrollView(
                   physics: const NeverScrollableScrollPhysics(),
                   child: child,
                 ),
               ),
-              const SizedBox(height: 8),
+
               SizedBox(
+                height: 36,
                 width: double.infinity,
                 child: OutlinedButton(
                   onPressed: onMore,
                   child: const Text('المزيد'),
                 ),
               ),
+              const SizedBox(height: 4),
             ],
           ),
         ),

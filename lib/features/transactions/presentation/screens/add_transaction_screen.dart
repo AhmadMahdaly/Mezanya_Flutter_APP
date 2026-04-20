@@ -155,9 +155,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     final budget = state.budgetSetup;
     final amount = double.tryParse(_amountController.text.trim()) ?? 0;
     final selectedWallet = wallets.where((w) => w.id == _walletId).toList();
-    final selectedWalletName = selectedWallet.isEmpty
-        ? 'اختر المحفظة'
-        : selectedWallet.first.name;
+    final selectedWalletName =
+        selectedWallet.isEmpty ? 'اختر المحفظة' : selectedWallet.first.name;
 
     final selectedAllocation = budget.allocations
         .where((a) => _budgetTargetId == 'alloc:${a.id}')
@@ -192,14 +191,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
     final allocationItems = [
       if (budget.unallocatedAmount > 0)
-        const DropdownMenuItem(
-            value: 'unallocated',
-            child: Text('غير المخصص')),
+        const DropdownMenuItem(value: 'unallocated', child: Text('غير المخصص')),
       ...budget.allocations.map(
           (a) => DropdownMenuItem(value: 'alloc:${a.id}', child: Text(a.name))),
       ...budget.linkedWallets.map((j) => DropdownMenuItem(
-          value: 'jar:${j.id}',
-          child: Text('حصالة: ${j.name}'))),
+          value: 'jar:${j.id}', child: Text('حصالة: ${j.name}'))),
     ];
     final allocationIds = allocationItems.map((item) => item.value!).toSet();
 
@@ -224,534 +220,615 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         setState(() => _budgetTargetId = '');
       });
     }
+    void unfocusScope(BuildContext context) {
+      final currentFocus = FocusScope.of(context);
+      // if (!currentFocus.hasPrimaryFocus && currentFocus.focusedChild != null) {
+      currentFocus.unfocus();
+      // }
+    }
 
     final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            theme.scaffoldBackgroundColor,
-            theme.colorScheme.surface,
-            theme.colorScheme.secondaryContainer.withValues(alpha: 0.55),
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          children: [
-            Center(
-              child: Container(
-                width: 54,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(999),
-                ),
+          // gradient: LinearGradient(
+          color: Color(0xffeee5d8)
+          // theme.scaffoldBackgroundColor,
+          // theme.colorScheme.surface,
+          // ,
+          // theme.colorScheme.secondaryContainer.withValues(alpha: 0.55),
+          // ],
+          //   begin: Alignment.topCenter,
+          //   end: Alignment.bottomCenter,
+          // ),
+          // borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+      child: GestureDetector(
+        onTap: () => unfocusScope(context),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: _typeSegmentedToggle(theme),
               ),
-            ),
-            const SizedBox(height: 14),
-            _typeSegmentedToggle(theme),
-            if (widget.recurringMode) ...[
-              const SizedBox(height: 10),
-              TextField(
-                controller: _recurringNameController,
-                decoration: const InputDecoration(
-                    labelText: 'اسم المعاملة المتكررة'),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: _recurrencePattern,
-                decoration: const InputDecoration(labelText: 'التكرار'),
-                items: const [
-                  DropdownMenuItem(
-                      value: 'weekly',
-                      child: Text('مرة كل أسبوع')),
-                  DropdownMenuItem(
-                      value: 'biweekly',
-                      child: Text('مرة كل أسبوعين')),
-                  DropdownMenuItem(
-                      value: 'monthly',
-                      child: Text('مرة كل شهر')),
-                  DropdownMenuItem(
-                      value: 'every_2_months',
-                      child: Text('مرة كل شهرين')),
-                  DropdownMenuItem(
-                      value: 'every_3_months',
-                      child: Text('مرة كل 3 شهور')),
-                  DropdownMenuItem(
-                      value: 'every_6_months',
-                      child: Text('مرة كل 6 شهور')),
-                  DropdownMenuItem(
-                      value: 'yearly',
-                      child: Text('مرة كل سنة')),
-                ],
-                onChanged: (v) {
-                  if (v != null) setState(() => _recurrencePattern = v);
-                },
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    final picked = await AppIconPickerDialog.show(
-                      context,
-                      initialIconName: _recurringIconName,
-                      initialColorHex: _recurringIconColor,
-                      title: 'اختيار أيقونة المعاملة المتكررة',
-                    );
-                    if (picked == null) return;
-                    setState(() {
-                      _recurringIconName = picked.iconName;
-                      _recurringIconColor = picked.colorHex;
-                    });
-                  },
-                  icon: const Icon(Icons.palette_outlined),
-                  label: const Text('اختيار الأيقونة واللون'),
-                ),
-              ),
-            ],
-            const SizedBox(height: 14),
-            TextField(
-              controller: _amountController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800),
-              decoration: const InputDecoration(
-                  labelText: 'المبلغ'),
-            ),
-            const SizedBox(height: 10),
-            ListTile(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
-              tileColor: theme.colorScheme.surface,
-              title: const Text('المحفظة'),
-              subtitle: Text(selectedWalletName),
-              trailing: const Icon(Icons.chevron_left),
-              onTap: () => _openWalletPicker(wallets),
-            ),
-            if (widget.recurringMode &&
-                (_recurrencePattern == 'weekly' ||
-                    _recurrencePattern == 'biweekly')) ...[
-              const SizedBox(height: 8),
-              DropdownButtonFormField<int>(
-                initialValue: _recurrenceWeekday,
-                decoration: const InputDecoration(
-                    labelText: 'اليوم في الأسبوع'),
-                items: const [
-                  DropdownMenuItem(value: 1, child: Text('الاثنين')),
-                  DropdownMenuItem(value: 2, child: Text('الثلاثاء')),
-                  DropdownMenuItem(value: 3, child: Text('الأربعاء')),
-                  DropdownMenuItem(value: 4, child: Text('الخميس')),
-                  DropdownMenuItem(value: 5, child: Text('الجمعة')),
-                  DropdownMenuItem(value: 6, child: Text('السبت')),
-                  DropdownMenuItem(value: 7, child: Text('الأحد')),
-                ],
-                onChanged: (v) {
-                  if (v != null) setState(() => _recurrenceWeekday = v);
-                },
-              ),
-            ],
-            if (_type == 'expense') ...[
-              const SizedBox(height: 12),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surface,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    const Text(
-                        'داخل الميزانية'),
-                    const Spacer(),
-                    Switch(
-                      value: _budgetScope == 'within-budget',
-                      onChanged: (v) {
-                        setState(() {
-                          _budgetScope = v ? 'within-budget' : 'outside-budget';
-                          if (!v) _budgetTargetId = '';
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            if (_type == 'expense' && _budgetScope == 'within-budget') ...[
-              const SizedBox(height: 10),
-              ListTile(
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
-                tileColor: theme.colorScheme.surface,
-                title: const Text('المخصص أو الحصالة'),
-                subtitle: Text(selectedAllocationName),
-                trailing: const Icon(Icons.chevron_left),
-                onTap: () => _openAllocationPicker(allocationItems, budget),
-              ),
-              const SizedBox(height: 10),
-              _categoriesBlock(
-                title: 'الفئات',
-                categories: visibleCategories,
-                onAdd:
-                    _budgetTargetId.isEmpty && _budgetScope == 'within-budget'
-                        ? null
-                        : () => _openAddCategoryDialog(
-                              budgetScope: _budgetScope,
-                              allocationId: _budgetTargetId.startsWith('alloc:')
-                                  ? _budgetTargetId.replaceFirst('alloc:', '')
-                                  : '',
-                              linkedWalletId: _budgetTargetId.startsWith('jar:')
-                                  ? _budgetTargetId.replaceFirst('jar:', '')
-                                  : '',
-                              existing: visibleCategories,
+              Expanded(
+                child: Container(
+                  margin: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                      color: theme.colorScheme.background,
+                      borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(24))),
+                  child: ListView(
+                    padding: EdgeInsets.all(12),
+                    children: [
+                      // Center(
+                      //   child: Container(
+                      //     width: 54,
+                      //     height: 6,
+                      //     decoration: BoxDecoration(
+                      //       color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                      //       borderRadius: BorderRadius.circular(999),
+                      //     ),
+                      //   ),
+                      // ),
+                      // const SizedBox(height: 14),
+
+                      if (widget.recurringMode) ...[
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: _recurringNameController,
+                          decoration: const InputDecoration(
+                              labelText: 'اسم المعاملة المتكررة'),
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String>(
+                          initialValue: _recurrencePattern,
+                          decoration:
+                              const InputDecoration(labelText: 'التكرار'),
+                          items: const [
+                            DropdownMenuItem(
+                                value: 'weekly', child: Text('مرة كل أسبوع')),
+                            DropdownMenuItem(
+                                value: 'biweekly',
+                                child: Text('مرة كل أسبوعين')),
+                            DropdownMenuItem(
+                                value: 'monthly', child: Text('مرة كل شهر')),
+                            DropdownMenuItem(
+                                value: 'every_2_months',
+                                child: Text('مرة كل شهرين')),
+                            DropdownMenuItem(
+                                value: 'every_3_months',
+                                child: Text('مرة كل 3 شهور')),
+                            DropdownMenuItem(
+                                value: 'every_6_months',
+                                child: Text('مرة كل 6 شهور')),
+                            DropdownMenuItem(
+                                value: 'yearly', child: Text('مرة كل سنة')),
+                          ],
+                          onChanged: (v) {
+                            if (v != null)
+                              setState(() => _recurrencePattern = v);
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              final picked = await AppIconPickerDialog.show(
+                                context,
+                                initialIconName: _recurringIconName,
+                                initialColorHex: _recurringIconColor,
+                                title: 'اختيار أيقونة المعاملة المتكررة',
+                              );
+                              if (picked == null) return;
+                              setState(() {
+                                _recurringIconName = picked.iconName;
+                                _recurringIconColor = picked.colorHex;
+                              });
+                            },
+                            icon: const Icon(Icons.palette_outlined),
+                            label: const Text('اختيار الأيقونة واللون'),
+                          ),
+                        ),
+                      ],
+
+                      TextField(
+                        controller: _amountController,
+                        autofocus: false,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            fontSize: 34, fontWeight: FontWeight.w800),
+                        decoration: const InputDecoration(
+                            labelText: 'المبلغ',
+                            filled: true,
+                            fillColor: Colors.white),
+                      ),
+                      const SizedBox(height: 12),
+                      Card(
+                        child: ListTile(
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
+                          tileColor: theme.colorScheme.surface,
+                          title: const Text('المحفظة'),
+                          subtitle: Text(selectedWalletName),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => _openWalletPicker(wallets),
+                        ),
+                      ),
+                      if (widget.recurringMode &&
+                          (_recurrencePattern == 'weekly' ||
+                              _recurrencePattern == 'biweekly')) ...[
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<int>(
+                          initialValue: _recurrenceWeekday,
+                          decoration: const InputDecoration(
+                              labelText: 'اليوم في الأسبوع'),
+                          items: const [
+                            DropdownMenuItem(value: 1, child: Text('الاثنين')),
+                            DropdownMenuItem(value: 2, child: Text('الثلاثاء')),
+                            DropdownMenuItem(value: 3, child: Text('الأربعاء')),
+                            DropdownMenuItem(value: 4, child: Text('الخميس')),
+                            DropdownMenuItem(value: 5, child: Text('الجمعة')),
+                            DropdownMenuItem(value: 6, child: Text('السبت')),
+                            DropdownMenuItem(value: 7, child: Text('الأحد')),
+                          ],
+                          onChanged: (v) {
+                            if (v != null)
+                              setState(() => _recurrenceWeekday = v);
+                          },
+                        ),
+                      ],
+                      if (_type == 'expense') ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            children: [
+                              const Text('داخل الميزانية'),
+                              const Spacer(),
+                              Switch(
+                                value: _budgetScope == 'within-budget',
+                                onChanged: (v) {
+                                  setState(() {
+                                    _budgetScope =
+                                        v ? 'within-budget' : 'outside-budget';
+                                    if (!v) _budgetTargetId = '';
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      if (_type == 'expense' &&
+                          _budgetScope == 'within-budget') ...[
+                        const SizedBox(height: 10),
+                        Card(
+                          child: ListTile(
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16)),
+                            tileColor: theme.colorScheme.surface,
+                            title: const Text(
+                              'المخصص',
                             ),
-              ),
-            ],
-            if (_type == 'expense' && _budgetScope == 'outside-budget') ...[
-              const SizedBox(height: 10),
-              _categoriesBlock(
-                title: 'الفئات العامة',
-                categories: visibleCategories,
-                onAdd: () => _openAddCategoryDialog(
-                  budgetScope: _budgetScope,
-                  allocationId: '',
-                  linkedWalletId: '',
-                  existing: visibleCategories,
-                ),
-              ),
-            ],
-            if (_type == 'income') ...[
-              const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                initialValue: _incomeSourceId,
-                decoration: const InputDecoration(
-                    labelText: 'مصدر الدخل'),
-                items: [
-                  const DropdownMenuItem(
-                      value: 'wallet-only',
-                      child: Text(
-                          'إيداع للمحفظة فقط')),
-                  ...budget.incomeSources.map((i) =>
-                      DropdownMenuItem(value: i.id, child: Text(i.name))),
-                ],
-                onChanged: (v) =>
-                    setState(() => _incomeSourceId = v ?? 'wallet-only'),
-              ),
-              const SizedBox(height: 10),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surface,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    const Text(
-                        'داخل الميزانية'),
-                    const Spacer(),
-                    Switch(
-                      value: _incomeBudgetScope == 'within-budget',
-                      onChanged: (v) {
-                        setState(
-                          () => _incomeBudgetScope =
-                              v ? 'within-budget' : 'outside-budget',
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              if (_incomeBudgetScope == 'within-budget') ...[
-                const SizedBox(height: 8),
-                ListTile(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  tileColor: theme.colorScheme.surface,
-                  title: const Text('الحصالة'),
-                  subtitle: Text(selectedIncomeJarName),
-                  trailing: const Icon(Icons.chevron_left),
-                  onTap: () => _openIncomeJarPicker(budget),
-                ),
-              ],
-            ],
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: ListTile(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(
-                        color:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                            leading: Text(selectedAllocationName,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                )),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () =>
+                                _openAllocationPicker(allocationItems, budget),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _categoriesBlock(
+                          title: 'الفئات',
+                          categories: visibleCategories,
+                          onAdd: _budgetTargetId.isEmpty &&
+                                  _budgetScope == 'within-budget'
+                              ? null
+                              : () => _openAddCategoryDialog(
+                                    budgetScope: _budgetScope,
+                                    allocationId:
+                                        _budgetTargetId.startsWith('alloc:')
+                                            ? _budgetTargetId.replaceFirst(
+                                                'alloc:', '')
+                                            : '',
+                                    linkedWalletId:
+                                        _budgetTargetId.startsWith('jar:')
+                                            ? _budgetTargetId.replaceFirst(
+                                                'jar:', '')
+                                            : '',
+                                    existing: visibleCategories,
+                                  ),
+                        ),
+                      ],
+                      if (_type == 'expense' &&
+                          _budgetScope == 'outside-budget') ...[
+                        const SizedBox(height: 10),
+                        _categoriesBlock(
+                          title: 'الفئات العامة',
+                          categories: visibleCategories,
+                          onAdd: () => _openAddCategoryDialog(
+                            budgetScope: _budgetScope,
+                            allocationId: '',
+                            linkedWalletId: '',
+                            existing: visibleCategories,
+                          ),
+                        ),
+                      ],
+                      if (_type == 'income') ...[
+                        const SizedBox(height: 10),
+                        DropdownButtonFormField<String>(
+                          initialValue: _incomeSourceId,
+                          decoration:
+                              const InputDecoration(labelText: 'مصدر الدخل'),
+                          items: [
+                            const DropdownMenuItem(
+                                value: 'wallet-only',
+                                child: Text('إيداع للمحفظة فقط')),
+                            ...budget.incomeSources.map((i) => DropdownMenuItem(
+                                value: i.id, child: Text(i.name))),
+                          ],
+                          onChanged: (v) => setState(
+                              () => _incomeSourceId = v ?? 'wallet-only'),
+                        ),
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              const Text('داخل الميزانية'),
+                              const Spacer(),
+                              Switch(
+                                value: _incomeBudgetScope == 'within-budget',
+                                onChanged: (v) {
+                                  setState(
+                                    () => _incomeBudgetScope =
+                                        v ? 'within-budget' : 'outside-budget',
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (_incomeBudgetScope == 'within-budget') ...[
+                          const SizedBox(height: 8),
+                          ListTile(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            tileColor: theme.colorScheme.surface,
+                            title: const Text('الحصالة'),
+                            subtitle: Text(selectedIncomeJarName),
+                            trailing: const Icon(Icons.chevron_left),
+                            onTap: () => _openIncomeJarPicker(budget),
+                          ),
+                        ],
+                      ],
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: MediaQuery.of(context).size.width / 2.8,
+                            child: ListTile(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                side: BorderSide(
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.1),
+                                ),
+                              ),
+                              title: const Text('التاريخ'),
+                              subtitle: Text(
+                                '${_date.day}/${_date.month}/${_date.year}',
+                                style: const TextStyle(fontSize: 10),
+                              ),
+                              trailing:
+                                  const Icon(Icons.calendar_month_outlined),
+                              onTap: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: _date,
+                                  firstDate: DateTime(2023),
+                                  lastDate: DateTime(2100),
+                                );
+                                if (picked != null) {
+                                  setState(() => _date = picked);
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: MediaQuery.of(context).size.width / 2.8,
+                            child: ListTile(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                side: BorderSide(
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.1),
+                                ),
+                              ),
+                              title: const Text('الوقت'),
+                              subtitle: Text(
+                                '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}',
+                                style: const TextStyle(fontSize: 10),
+                              ),
+                              trailing: const Icon(Icons.access_time),
+                              onTap: () async {
+                                final picked = await showTimePicker(
+                                  context: context,
+                                  initialTime: _time,
+                                );
+                                if (picked != null) {
+                                  setState(() => _time = picked);
+                                }
+                              },
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    title: const Text('التاريخ'),
-                    subtitle: Text('${_date.day}/${_date.month}/${_date.year}'),
-                    trailing: const Icon(Icons.calendar_month_outlined),
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: _date,
-                        firstDate: DateTime(2023),
-                        lastDate: DateTime(2100),
-                      );
-                      if (picked != null) {
-                        setState(() => _date = picked);
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ListTile(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(
-                        color:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _notesController,
+                        maxLines: 2,
+                        decoration: const InputDecoration(labelText: 'ملاحظات'),
                       ),
-                    ),
-                    title: const Text('الوقت'),
-                    subtitle: Text(
-                      '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}',
-                    ),
-                    trailing: const Icon(Icons.access_time),
-                    onTap: () async {
-                      final picked = await showTimePicker(
-                        context: context,
-                        initialTime: _time,
-                      );
-                      if (picked != null) {
-                        setState(() => _time = picked);
-                      }
-                    },
+                      const SizedBox(height: 12),
+                      if (widget.recurringMode &&
+                          widget.initialRecurring != null)
+                        TextButton(
+                          onPressed: () async {
+                            await widget.cubit.deleteRecurringTransaction(
+                              widget.initialRecurring!.id,
+                            );
+                            if (!context.mounted) return;
+                            Navigator.of(context).pop();
+                          },
+                          child: Text(
+                            'حذف المعاملة المتكررة',
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.error),
+                          ),
+                        ),
+                      if (!widget.recurringMode &&
+                          widget.initialTransaction != null)
+                        TextButton(
+                          onPressed: () async {
+                            await widget.cubit.deleteTransaction(
+                                widget.initialTransaction!.id);
+                            if (!context.mounted) return;
+                            Navigator.of(context).pop();
+                          },
+                          child: Text(
+                            'حذف المعاملة',
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.error),
+                          ),
+                        ),
+                      FilledButton(
+                        onPressed: !_canSubmit
+                            ? null
+                            : () async {
+                                setState(() => _isSaving = true);
+                                try {
+                                  if (amount <= 0) {
+                                    _showValidationError(
+                                        'أدخل مبلغًا صحيحًا أكبر من صفر.');
+                                    return;
+                                  }
+                                  if (_walletId.isEmpty) {
+                                    _showValidationError('اختر محفظة أولًا.');
+                                    return;
+                                  }
+                                  if (_type == 'expense' &&
+                                      _budgetScope == 'within-budget' &&
+                                      _budgetTargetId.isEmpty) {
+                                    _showValidationError(
+                                        'اختر مخصصًا أو حصالة للمعاملة داخل الميزانية.');
+                                    return;
+                                  }
+                                  if (_budgetTargetId == 'unallocated' &&
+                                      amount > budget.unallocatedAmount) {
+                                    _showValidationError(
+                                        'المبلغ أكبر من المتاح في غير المخصص.');
+                                    return;
+                                  }
+                                  if (_type == 'income' &&
+                                      _incomeBudgetScope == 'within-budget' &&
+                                      _incomeJarId.isEmpty) {
+                                    _showValidationError(
+                                        'اختر حصالة للدخل داخل الميزانية.');
+                                    return;
+                                  }
+                                  if (widget.recurringMode &&
+                                      _recurringNameController.text
+                                          .trim()
+                                          .isEmpty) {
+                                    _showValidationError(
+                                        'اكتب اسم المعاملة المتكررة.');
+                                    return;
+                                  }
+
+                                  final selectedJarId = _budgetTargetId
+                                          .startsWith('jar:')
+                                      ? _budgetTargetId.replaceFirst('jar:', '')
+                                      : null;
+
+                                  if (widget.recurringMode) {
+                                    final recurring = widget.initialRecurring;
+                                    final recurringEntity =
+                                        RecurringTransactionEntity(
+                                      id: recurring?.id ??
+                                          'rec-${DateTime.now().microsecondsSinceEpoch}',
+                                      name:
+                                          _recurringNameController.text.trim(),
+                                      type: _type,
+                                      amount: amount,
+                                      dayOfMonth: _date.day.clamp(1, 28),
+                                      executionType: 'confirm',
+                                      walletId: _walletId,
+                                      budgetScope: _type == 'expense'
+                                          ? _budgetScope
+                                          : _incomeBudgetScope,
+                                      recurrencePattern: _recurrencePattern,
+                                      icon: _recurringIconName,
+                                      iconColor: _recurringIconColor,
+                                      weekday: (_recurrencePattern ==
+                                                  'weekly' ||
+                                              _recurrencePattern == 'biweekly')
+                                          ? _recurrenceWeekday
+                                          : null,
+                                      allocationId: _type == 'expense' &&
+                                              _budgetScope == 'within-budget' &&
+                                              _budgetTargetId
+                                                  .startsWith('alloc:')
+                                          ? _budgetTargetId.replaceFirst(
+                                              'alloc:', '')
+                                          : null,
+                                      targetJarId: _type == 'income' &&
+                                              _incomeBudgetScope ==
+                                                  'within-budget'
+                                          ? _incomeJarId
+                                          : (_type == 'expense' &&
+                                                  _budgetTargetId
+                                                      .startsWith('jar:')
+                                              ? selectedJarId
+                                              : null),
+                                      incomeSourceId: _type == 'income' &&
+                                              _incomeSourceId != 'wallet-only'
+                                          ? _incomeSourceId
+                                          : null,
+                                      notes:
+                                          _notesController.text.trim().isEmpty
+                                              ? null
+                                              : _notesController.text.trim(),
+                                      isActive: recurring?.isActive ?? true,
+                                    );
+                                    if (recurring == null) {
+                                      await widget.cubit
+                                          .addRecurringTransaction(
+                                        name: recurringEntity.name,
+                                        type: recurringEntity.type,
+                                        amount: recurringEntity.amount,
+                                        dayOfMonth: recurringEntity.dayOfMonth,
+                                        executionType:
+                                            recurringEntity.executionType,
+                                        walletId: recurringEntity.walletId,
+                                        budgetScope:
+                                            recurringEntity.budgetScope,
+                                        recurrencePattern:
+                                            recurringEntity.recurrencePattern,
+                                        icon: recurringEntity.icon,
+                                        iconColor: recurringEntity.iconColor,
+                                        weekday: recurringEntity.weekday,
+                                        allocationId:
+                                            recurringEntity.allocationId,
+                                        targetJarId:
+                                            recurringEntity.targetJarId,
+                                        incomeSourceId:
+                                            recurringEntity.incomeSourceId,
+                                        notes: recurringEntity.notes,
+                                      );
+                                    } else {
+                                      await widget.cubit
+                                          .updateRecurringTransaction(
+                                              recurringEntity);
+                                    }
+                                  } else {
+                                    if (widget.initialTransaction != null) {
+                                      await widget.cubit.deleteTransaction(
+                                        widget.initialTransaction!.id,
+                                      );
+                                    }
+                                    await widget.cubit.addTransaction(
+                                      walletId: _walletId,
+                                      toWalletId: _type == 'income' &&
+                                              _incomeBudgetScope ==
+                                                  'within-budget'
+                                          ? _incomeJarId
+                                          : selectedJarId,
+                                      amount: amount,
+                                      type: _type,
+                                      createdAt: DateTime(
+                                        _date.year,
+                                        _date.month,
+                                        _date.day,
+                                        _time.hour,
+                                        _time.minute,
+                                      ),
+                                      allocationId: _type == 'expense' &&
+                                              _budgetScope == 'within-budget' &&
+                                              _budgetTargetId
+                                                  .startsWith('alloc:')
+                                          ? _budgetTargetId.replaceFirst(
+                                              'alloc:', '')
+                                          : null,
+                                      budgetScope: _type == 'expense'
+                                          ? _budgetScope
+                                          : _type == 'income'
+                                              ? _incomeBudgetScope
+                                              : null,
+                                      incomeSourceId: _type == 'income' &&
+                                              _incomeSourceId != 'wallet-only'
+                                          ? _incomeSourceId
+                                          : null,
+                                      notes:
+                                          _notesController.text.trim().isEmpty
+                                              ? null
+                                              : _notesController.text.trim(),
+                                    );
+                                  }
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                        content: Text(widget.recurringMode
+                                            ? 'تم حفظ المعاملة المتكررة.'
+                                            : (_type == 'income'
+                                                ? 'تم تسجيل الدخل.'
+                                                : 'تم تسجيل المعاملة.'))),
+                                  );
+                                  Navigator.of(context).pop();
+                                } finally {
+                                  if (mounted) {
+                                    setState(() => _isSaving = false);
+                                  }
+                                }
+                              },
+                        child: Text(
+                          widget.recurringMode
+                              ? (widget.initialRecurring == null
+                                  ? 'حفظ المعاملة المتكررة'
+                                  : 'تحديث التكرار')
+                              : widget.initialTransaction != null
+                                  ? 'حفظ التعديل'
+                                  : (_type == 'income'
+                                      ? 'تسجيل الدخل'
+                                      : 'تسجيل المعاملة'),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _notesController,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                  labelText: 'ملاحظات'),
-            ),
-            const SizedBox(height: 12),
-            if (widget.recurringMode && widget.initialRecurring != null)
-              TextButton(
-                onPressed: () async {
-                  await widget.cubit.deleteRecurringTransaction(
-                    widget.initialRecurring!.id,
-                  );
-                  if (!context.mounted) return;
-                  Navigator.of(context).pop();
-                },
-                child: Text(
-                  'حذف المعاملة المتكررة',
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
               ),
-            if (!widget.recurringMode && widget.initialTransaction != null)
-              TextButton(
-                onPressed: () async {
-                  await widget.cubit
-                      .deleteTransaction(widget.initialTransaction!.id);
-                  if (!context.mounted) return;
-                  Navigator.of(context).pop();
-                },
-                child: Text(
-                  'حذف المعاملة',
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-              ),
-            FilledButton(
-              onPressed: !_canSubmit
-                  ? null
-                  : () async {
-                      setState(() => _isSaving = true);
-                      try {
-                if (amount <= 0) {
-                  _showValidationError(
-                      'أدخل مبلغًا صحيحًا أكبر من صفر.');
-                  return;
-                }
-                if (_walletId.isEmpty) {
-                  _showValidationError('اختر محفظة أولًا.');
-                  return;
-                }
-                if (_type == 'expense' &&
-                    _budgetScope == 'within-budget' &&
-                    _budgetTargetId.isEmpty) {
-                  _showValidationError(
-                      'اختر مخصصًا أو حصالة للمعاملة داخل الميزانية.');
-                  return;
-                }
-                if (_budgetTargetId == 'unallocated' &&
-                    amount > budget.unallocatedAmount) {
-                  _showValidationError(
-                      'المبلغ أكبر من المتاح في غير المخصص.');
-                  return;
-                }
-                if (_type == 'income' &&
-                    _incomeBudgetScope == 'within-budget' &&
-                    _incomeJarId.isEmpty) {
-                  _showValidationError(
-                      'اختر حصالة للدخل داخل الميزانية.');
-                  return;
-                }
-                if (widget.recurringMode &&
-                    _recurringNameController.text.trim().isEmpty) {
-                  _showValidationError('اكتب اسم المعاملة المتكررة.');
-                  return;
-                }
-
-                final selectedJarId = _budgetTargetId.startsWith('jar:')
-                    ? _budgetTargetId.replaceFirst('jar:', '')
-                    : null;
-
-                if (widget.recurringMode) {
-                  final recurring = widget.initialRecurring;
-                  final recurringEntity = RecurringTransactionEntity(
-                    id: recurring?.id ??
-                        'rec-${DateTime.now().microsecondsSinceEpoch}',
-                    name: _recurringNameController.text.trim(),
-                    type: _type,
-                    amount: amount,
-                    dayOfMonth: _date.day.clamp(1, 28),
-                    executionType: 'confirm',
-                    walletId: _walletId,
-                    budgetScope:
-                        _type == 'expense' ? _budgetScope : _incomeBudgetScope,
-                    recurrencePattern: _recurrencePattern,
-                    icon: _recurringIconName,
-                    iconColor: _recurringIconColor,
-                    weekday: (_recurrencePattern == 'weekly' ||
-                            _recurrencePattern == 'biweekly')
-                        ? _recurrenceWeekday
-                        : null,
-                    allocationId: _type == 'expense' &&
-                            _budgetScope == 'within-budget' &&
-                            _budgetTargetId.startsWith('alloc:')
-                        ? _budgetTargetId.replaceFirst('alloc:', '')
-                        : null,
-                    targetJarId: _type == 'income' &&
-                            _incomeBudgetScope == 'within-budget'
-                        ? _incomeJarId
-                        : (_type == 'expense' &&
-                                _budgetTargetId.startsWith('jar:')
-                            ? selectedJarId
-                            : null),
-                    incomeSourceId:
-                        _type == 'income' && _incomeSourceId != 'wallet-only'
-                            ? _incomeSourceId
-                            : null,
-                    notes: _notesController.text.trim().isEmpty
-                        ? null
-                        : _notesController.text.trim(),
-                    isActive: recurring?.isActive ?? true,
-                  );
-                  if (recurring == null) {
-                    await widget.cubit.addRecurringTransaction(
-                      name: recurringEntity.name,
-                      type: recurringEntity.type,
-                      amount: recurringEntity.amount,
-                      dayOfMonth: recurringEntity.dayOfMonth,
-                      executionType: recurringEntity.executionType,
-                      walletId: recurringEntity.walletId,
-                      budgetScope: recurringEntity.budgetScope,
-                      recurrencePattern: recurringEntity.recurrencePattern,
-                      icon: recurringEntity.icon,
-                      iconColor: recurringEntity.iconColor,
-                      weekday: recurringEntity.weekday,
-                      allocationId: recurringEntity.allocationId,
-                      targetJarId: recurringEntity.targetJarId,
-                      incomeSourceId: recurringEntity.incomeSourceId,
-                      notes: recurringEntity.notes,
-                    );
-                  } else {
-                    await widget.cubit
-                        .updateRecurringTransaction(recurringEntity);
-                  }
-                } else {
-                  if (widget.initialTransaction != null) {
-                    await widget.cubit.deleteTransaction(
-                      widget.initialTransaction!.id,
-                    );
-                  }
-                  await widget.cubit.addTransaction(
-                    walletId: _walletId,
-                    toWalletId: _type == 'income' &&
-                            _incomeBudgetScope == 'within-budget'
-                        ? _incomeJarId
-                        : selectedJarId,
-                    amount: amount,
-                    type: _type,
-                    createdAt: DateTime(
-                      _date.year,
-                      _date.month,
-                      _date.day,
-                      _time.hour,
-                      _time.minute,
-                    ),
-                    allocationId: _type == 'expense' &&
-                            _budgetScope == 'within-budget' &&
-                            _budgetTargetId.startsWith('alloc:')
-                        ? _budgetTargetId.replaceFirst('alloc:', '')
-                        : null,
-                    budgetScope: _type == 'expense'
-                        ? _budgetScope
-                        : _type == 'income'
-                            ? _incomeBudgetScope
-                            : null,
-                    incomeSourceId:
-                        _type == 'income' && _incomeSourceId != 'wallet-only'
-                            ? _incomeSourceId
-                            : null,
-                    notes: _notesController.text.trim().isEmpty
-                        ? null
-                        : _notesController.text.trim(),
-                  );
-                }
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                      content: Text(widget.recurringMode
-                          ? 'تم حفظ المعاملة المتكررة.'
-                          : (_type == 'income'
-                              ? 'تم تسجيل الدخل.'
-                              : 'تم تسجيل المعاملة.'))),
-                );
-                Navigator.of(context).pop();
-                      } finally {
-                        if (mounted) {
-                          setState(() => _isSaving = false);
-                        }
-                      }
-                    },
-              child: Text(
-                widget.recurringMode
-                    ? (widget.initialRecurring == null
-                        ? 'حفظ المعاملة المتكررة'
-                        : 'تحديث التكرار')
-                    : widget.initialTransaction != null
-                        ? 'حفظ التعديل'
-                        : (_type == 'income'
-                            ? 'تسجيل الدخل'
-                            : 'تسجيل المعاملة'),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -765,7 +842,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.55),
+          color: theme.colorScheme.outlineVariant,
         ),
       ),
       child: Stack(
@@ -774,7 +851,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             duration: const Duration(milliseconds: 240),
             curve: Curves.easeOutCubic,
             alignment:
-                activeOnRight ? Alignment.centerRight : Alignment.centerLeft,
+                activeOnRight ? Alignment.centerLeft : Alignment.centerRight,
             child: Container(
               width: MediaQuery.of(context).size.width > 420 ? 190 : 165,
               margin: const EdgeInsets.all(6),
@@ -803,9 +880,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     child: Text(
                       'مصروف',
                       style: TextStyle(
-                        color: !activeOnRight
-                            ? Colors.white
-                            : theme.colorScheme.onSurface,
+                        color: activeOnRight ? Colors.black : Colors.white,
                         fontWeight: FontWeight.w800,
                         fontSize: 15,
                       ),
@@ -826,9 +901,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     child: Text(
                       'دخل',
                       style: TextStyle(
-                        color: activeOnRight
-                            ? Colors.white
-                            : theme.colorScheme.onSurface,
+                        color: activeOnRight ? Colors.white : Colors.black,
                         fontWeight: FontWeight.w800,
                         fontSize: 15,
                       ),
@@ -857,8 +930,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
                     title: Text(wallet.name),
-                    subtitle: Text(
-                        'الرصيد: ${wallet.balance.toStringAsFixed(2)}'),
+                    subtitle:
+                        Text('الرصيد: ${wallet.balance.toStringAsFixed(2)}'),
                     trailing: _walletId == wallet.id
                         ? Icon(Icons.check_circle,
                             color: Theme.of(context).colorScheme.primary)
@@ -929,8 +1002,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                          'الرصيد: ${jar.balance.toStringAsFixed(2)}'),
+                      Text('الرصيد: ${jar.balance.toStringAsFixed(2)}'),
                       const SizedBox(height: 6),
                       LinearProgressIndicator(
                           value: ratio.toDouble(), minHeight: 8),
@@ -961,8 +1033,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                        'المخطط: ${planned.toStringAsFixed(2)}'),
+                    Text('المخطط: ${planned.toStringAsFixed(2)}'),
                     const SizedBox(height: 6),
                     LinearProgressIndicator(
                         value: ratio.toDouble(), minHeight: 8),
@@ -999,8 +1070,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
                     title: Text(jar.name),
-                    subtitle: Text(
-                        'الرصيد: ${jar.balance.toStringAsFixed(2)}'),
+                    subtitle: Text('الرصيد: ${jar.balance.toStringAsFixed(2)}'),
                     trailing: _incomeJarId == jar.id
                         ? Icon(
                             Icons.check_circle,
@@ -1052,8 +1122,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               borderRadius: BorderRadius.circular(14),
               color: Theme.of(context).colorScheme.surface,
             ),
-            child: const Text(
-                'لا توجد فئات حتى الآن لهذا الجزء.'),
+            child: const Text('لا توجد فئات حتى الآن لهذا الجزء.'),
           )
         else
           SizedBox(
@@ -1130,8 +1199,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     const SizedBox(height: 6),
                     TextField(
                       controller: _newCategoryController,
-                      decoration: const InputDecoration(
-                          hintText: 'اكتب اسم الفئة'),
+                      decoration:
+                          const InputDecoration(hintText: 'اكتب اسم الفئة'),
                       onChanged: (_) => setDialog(() {}),
                     ),
                     const SizedBox(height: 14),

@@ -23,6 +23,8 @@ class RecurringTransactionEntity {
     this.isVariableIncome = false,
     this.isDebtOrSubscription = false,
     this.notes,
+    this.snoozedUntil,
+    this.lastHandledOccurrenceAt,
     this.isActive = true,
   });
 
@@ -49,6 +51,8 @@ class RecurringTransactionEntity {
   final bool isVariableIncome;
   final bool isDebtOrSubscription;
   final String? notes;
+  final String? snoozedUntil;
+  final String? lastHandledOccurrenceAt;
   final bool isActive;
 
   RecurringTransactionEntity copyWith({
@@ -75,6 +79,8 @@ class RecurringTransactionEntity {
     bool? isVariableIncome,
     bool? isDebtOrSubscription,
     String? notes,
+    String? snoozedUntil,
+    String? lastHandledOccurrenceAt,
     bool? isActive,
   }) {
     return RecurringTransactionEntity(
@@ -101,6 +107,9 @@ class RecurringTransactionEntity {
       isVariableIncome: isVariableIncome ?? this.isVariableIncome,
       isDebtOrSubscription: isDebtOrSubscription ?? this.isDebtOrSubscription,
       notes: notes ?? this.notes,
+      snoozedUntil: snoozedUntil ?? this.snoozedUntil,
+      lastHandledOccurrenceAt:
+          lastHandledOccurrenceAt ?? this.lastHandledOccurrenceAt,
       isActive: isActive ?? this.isActive,
     );
   }
@@ -130,6 +139,8 @@ class RecurringTransactionEntity {
       'isVariableIncome': isVariableIncome,
       'isDebtOrSubscription': isDebtOrSubscription,
       'notes': notes,
+      'snoozedUntil': snoozedUntil,
+      'lastHandledOccurrenceAt': lastHandledOccurrenceAt,
       'isActive': isActive,
     };
   }
@@ -163,6 +174,8 @@ class RecurringTransactionEntity {
       isVariableIncome: map['isVariableIncome'] as bool? ?? false,
       isDebtOrSubscription: map['isDebtOrSubscription'] as bool? ?? false,
       notes: map['notes'] as String?,
+      snoozedUntil: map['snoozedUntil'] as String?,
+      lastHandledOccurrenceAt: map['lastHandledOccurrenceAt'] as String?,
       isActive: map['isActive'] as bool? ?? true,
     );
   }

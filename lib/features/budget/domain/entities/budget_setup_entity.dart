@@ -1,4 +1,4 @@
-import '../../../categories/domain/entities/category_entity.dart';
+﻿import '../../../categories/domain/entities/category_entity.dart';
 
 class IncomeSourceEntity {
   const IncomeSourceEntity({
@@ -208,6 +208,7 @@ class DebtEntity {
     required this.executionDay,
     required this.type,
     required this.fundingSource,
+    this.recurringTransactionId,
   });
 
   final String id;
@@ -216,6 +217,7 @@ class DebtEntity {
   final int executionDay;
   final String type;
   final String fundingSource;
+  final String? recurringTransactionId;
 
   Map<String, dynamic> toMap() => {
         'id': id,
@@ -224,6 +226,7 @@ class DebtEntity {
         'executionDay': executionDay,
         'type': type,
         'fundingSource': fundingSource,
+        'recurringTransactionId': recurringTransactionId,
       };
 
   factory DebtEntity.fromMap(Map<String, dynamic> map) => DebtEntity(
@@ -233,6 +236,7 @@ class DebtEntity {
         executionDay: map['executionDay'] as int? ?? 1,
         type: map['type'] as String? ?? 'confirm',
         fundingSource: map['fundingSource'] as String? ?? '',
+        recurringTransactionId: map['recurringTransactionId'] as String?,
       );
 }
 
@@ -268,7 +272,7 @@ class BudgetSetupEntity {
         incomeSources: [
           IncomeSourceEntity(
             id: 'salary-default',
-            name: 'الراتب',
+            name: 'دخل جديد',
             amount: 0,
             date: 1,
             type: 'confirm',

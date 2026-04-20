@@ -6,6 +6,23 @@ import '../../../budget/domain/entities/budget_setup_entity.dart';
 import '../../../categories/domain/entities/category_entity.dart';
 import '../../domain/entities/recurring_transaction_entity.dart';
 
+class RecurringTransactionComposerResult {
+  const RecurringTransactionComposerResult._({
+    this.recurring,
+    this.deleteRequested = false,
+  });
+
+  const RecurringTransactionComposerResult.saved(
+    RecurringTransactionEntity recurring,
+  ) : this._(recurring: recurring);
+
+  const RecurringTransactionComposerResult.deleted()
+      : this._(deleteRequested: true);
+
+  final RecurringTransactionEntity? recurring;
+  final bool deleteRequested;
+}
+
 class RecurringTransactionComposerScreen extends StatefulWidget {
   const RecurringTransactionComposerScreen({
     super.key,
@@ -14,6 +31,7 @@ class RecurringTransactionComposerScreen extends StatefulWidget {
     this.initialRecurring,
     this.initialWithinBudget = false,
     this.returnOnSave = false,
+    this.allowDelete = false,
   });
 
   final AppCubit cubit;
@@ -21,6 +39,7 @@ class RecurringTransactionComposerScreen extends StatefulWidget {
   final RecurringTransactionEntity? initialRecurring;
   final bool initialWithinBudget;
   final bool returnOnSave;
+  final bool allowDelete;
 
   @override
   State<RecurringTransactionComposerScreen> createState() =>
@@ -306,13 +325,7 @@ class _RecurringTransactionComposerScreenState
                 ],
                 onChanged: (value) {
                   if (value != null) {
-                    setState(() {
-                      _recurrencePattern = value;
-                      if ((_recurrencePattern == 'daily' || _isWeekPattern) &&
-                          _reminderLeadDays == 0) {
-                        _reminderLeadDays = 1;
-                      }
-                    });
+                    setState(() => _recurrencePattern = value);
                   }
                 },
               ),
@@ -351,10 +364,7 @@ class _RecurringTransactionComposerScreenState
               if (_executionType == 'confirm') ...[
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
-                  value: (_recurrencePattern == 'daily' || _isWeekPattern) &&
-                          _reminderLeadDays == 0
-                      ? 1
-                      : _reminderLeadDays,
+                  value: _reminderLeadDays,
                   decoration: InputDecoration(
                     labelText: _recurrencePattern == 'daily' || _isWeekPattern
                         ? 'وقت الإشعار'
@@ -363,6 +373,10 @@ class _RecurringTransactionComposerScreenState
                   ),
                   items: (_recurrencePattern == 'daily' || _isWeekPattern)
                       ? const [
+                          DropdownMenuItem(
+                            value: 0,
+                            child: Text('في الوقت المحدد'),
+                          ),
                           DropdownMenuItem(
                             value: 1,
                             child: Text('قبلها بساعة'),
@@ -413,6 +427,19 @@ class _RecurringTransactionComposerScreenState
                         : 'تحديث المعاملة المتكررة'),
               ),
             ),
+            if (widget.allowDelete && widget.initialRecurring != null) ...[
+              const SizedBox(height: 12),
+              Center(
+                child: TextButton.icon(
+                  onPressed: _deleteFromComposer,
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  label: const Text('حذف المعاملة'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: theme.colorScheme.error,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -514,71 +541,112 @@ class _RecurringTransactionComposerScreenState
 
   Widget _budgetTargetSection(BudgetSetupEntity budget) {
     return _surfaceSection(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: EdgeInsets.zero,
+          expandedCrossAxisAlignment: CrossAxisAlignment.start,
+          title: const Text(
             'المخصصات والحصالات',
             style: TextStyle(fontWeight: FontWeight.w800),
           ),
-          const SizedBox(height: 10),
-          RadioListTile<bool>(
-            value: true,
-            groupValue: _isDebtOrSubscription,
-            contentPadding: EdgeInsets.zero,
-            title: const Text('معاملة دين أو اشتراك'),
-            subtitle: const Text('لن تُحسب من أي مخصص وستظهر ضمن الديون والاشتراكات'),
-            onChanged: (value) {
-              setState(() {
-                _isDebtOrSubscription = true;
-                _allocationId = null;
-                _targetJarId = null;
-              });
-            },
-          ),
-          const Divider(height: 24),
-          const Text('المخصصات', style: TextStyle(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          ...budget.allocations.map(
-            (allocation) => RadioListTile<String>(
-              value: allocation.id,
-              groupValue: !_isDebtOrSubscription && _targetJarId == null
-                  ? _allocationId
-                  : null,
+          subtitle: Text(_selectedBudgetTargetLabel(budget)),
+          children: [
+            RadioListTile<bool>(
+              value: true,
+              groupValue: _isDebtOrSubscription,
               contentPadding: EdgeInsets.zero,
-              title: Text(allocation.name),
+              title: const Text('معاملة دين أو اشتراك'),
+              subtitle: const Text(
+                'لن تُحسب من أي مخصص وستظهر ضمن الديون والاشتراكات',
+              ),
               onChanged: (value) {
                 setState(() {
-                  _isDebtOrSubscription = false;
-                  _allocationId = value;
+                  _isDebtOrSubscription = true;
+                  _allocationId = null;
                   _targetJarId = null;
                 });
               },
             ),
-          ),
-          const Divider(height: 24),
-          const Text('الحصالات', style: TextStyle(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          ...budget.linkedWallets.map(
-            (jar) => RadioListTile<String>(
-              value: jar.id,
-              groupValue: !_isDebtOrSubscription && _allocationId == null
-                  ? _targetJarId
-                  : null,
-              contentPadding: EdgeInsets.zero,
-              title: Text(jar.name),
-              onChanged: (value) {
-                setState(() {
-                  _isDebtOrSubscription = false;
-                  _targetJarId = value;
-                  _allocationId = null;
-                });
-              },
+            const Divider(height: 24),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text(
+                'المخصصات',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
             ),
-          ),
-        ],
+            ...budget.allocations.map(
+              (allocation) => RadioListTile<String>(
+                value: allocation.id,
+                groupValue: !_isDebtOrSubscription && _targetJarId == null
+                    ? _allocationId
+                    : null,
+                contentPadding: EdgeInsets.zero,
+                title: Text(allocation.name),
+                onChanged: (value) {
+                  setState(() {
+                    _isDebtOrSubscription = false;
+                    _allocationId = value;
+                    _targetJarId = null;
+                  });
+                },
+              ),
+            ),
+            const Divider(height: 24),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text(
+                'الحصالات',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            ...budget.linkedWallets.map(
+              (jar) => RadioListTile<String>(
+                value: jar.id,
+                groupValue: !_isDebtOrSubscription && _allocationId == null
+                    ? _targetJarId
+                    : null,
+                contentPadding: EdgeInsets.zero,
+                title: Text(jar.name),
+                onChanged: (value) {
+                  setState(() {
+                    _isDebtOrSubscription = false;
+                    _targetJarId = value;
+                    _allocationId = null;
+                  });
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  String _selectedBudgetTargetLabel(BudgetSetupEntity budget) {
+    if (_isDebtOrSubscription) {
+      return 'معاملة دين أو اشتراك';
+    }
+
+    if (_allocationId != null) {
+      for (final allocation in budget.allocations) {
+        if (allocation.id == _allocationId) {
+          return 'المخصص: ${allocation.name}';
+        }
+      }
+    }
+
+    if (_targetJarId != null) {
+      for (final jar in budget.linkedWallets) {
+        if (jar.id == _targetJarId) {
+          return 'الحصالة: ${jar.name}';
+        }
+      }
+    }
+
+    return 'اضغط للاختيار';
   }
 
   Widget _categorySection(List<CategoryEntity> categories) {
@@ -856,7 +924,9 @@ class _RecurringTransactionComposerScreenState
 
     if (widget.returnOnSave) {
       if (!mounted) return;
-      Navigator.of(context).pop(recurring);
+      Navigator.of(context).pop(
+        RecurringTransactionComposerResult.saved(recurring),
+      );
       return;
     }
 
@@ -912,6 +982,44 @@ class _RecurringTransactionComposerScreenState
           notes: recurring.notes,
         ),
       );
+    }
+
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _deleteFromComposer() async {
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف المعاملة'),
+        content: const Text(
+          'سيتم حذف هذه المعاملة المتكررة. هل تريد المتابعة؟',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+
+    if (approved != true || !mounted) {
+      return;
+    }
+
+    if (widget.returnOnSave) {
+      Navigator.of(context).pop(const RecurringTransactionComposerResult.deleted());
+      return;
+    }
+
+    if (widget.initialRecurring != null) {
+      await widget.cubit.deleteRecurringTransaction(widget.initialRecurring!.id);
     }
 
     if (!mounted) return;

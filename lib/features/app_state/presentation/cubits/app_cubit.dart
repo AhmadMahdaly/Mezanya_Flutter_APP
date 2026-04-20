@@ -504,6 +504,7 @@ class AppCubit extends Cubit<AppStateEntity> {
   }
 
   Future<void> addRecurringTransaction({
+    String? id,
     required String name,
     required String type,
     required double amount,
@@ -528,7 +529,7 @@ class AppCubit extends Cubit<AppStateEntity> {
     String? notes,
   }) async {
     final recurring = RecurringTransactionEntity(
-      id: _id('rec'),
+      id: id ?? _id('rec'),
       name: name,
       type: type,
       amount: amount,

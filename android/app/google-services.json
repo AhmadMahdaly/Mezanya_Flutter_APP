@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "609040380574",
+    "project_id": "mezanya-app",
+    "storage_bucket": "mezanya-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:609040380574:android:5f010e2ff0598c7a99418f",
+        "android_client_info": {
+          "package_name": "com.mezanya.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAN9RakVkOYgHwFnu3puocmPkwxjrsoh4I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

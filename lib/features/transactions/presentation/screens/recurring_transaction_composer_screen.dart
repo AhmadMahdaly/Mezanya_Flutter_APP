@@ -98,14 +98,14 @@ class _RecurringTransactionComposerScreenState
             : recurring.amount.toStringAsFixed(2);
     _notesController.text = recurring?.notes ?? '';
     final principal = recurring?.debtPrincipalTotal;
-    _debtPrincipalController.text = principal != null && principal > 0
-        ? principal.toStringAsFixed(2)
-        : '';
+    _debtPrincipalController.text =
+        principal != null && principal > 0 ? principal.toStringAsFixed(2) : '';
     _isVariableIncome = recurring?.isVariableIncome ?? false;
     _isDebtOrSubscription = recurring?.isDebtOrSubscription ?? true;
     _monthlyDay = (recurring?.dayOfMonth ?? 1).clamp(1, 28);
     _yearlyDay = (recurring?.dayOfMonth ?? 1).clamp(1, 28);
-    _yearlyMonth = (recurring?.monthOfYear ?? DateTime.now().month).clamp(1, 12);
+    _yearlyMonth =
+        (recurring?.monthOfYear ?? DateTime.now().month).clamp(1, 12);
     _reminderLeadDays = recurring?.reminderLeadDays ?? 0;
     _allocationId = recurring?.allocationId;
     _targetJarId = recurring?.targetJarId;
@@ -133,7 +133,8 @@ class _RecurringTransactionComposerScreenState
     super.dispose();
   }
 
-  bool get _showAmount => !(_type == 'income' && _withinBudget && _isVariableIncome);
+  bool get _showAmount =>
+      !(_type == 'income' && _withinBudget && _isVariableIncome);
 
   bool get _showRecurrenceDetails =>
       !(_type == 'income' && _withinBudget && _isVariableIncome);
@@ -227,16 +228,19 @@ class _RecurringTransactionComposerScreenState
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
-                  labelText:
-                      _type == 'expense' && _withinBudget && _isDebtOrSubscription
-                          ? 'مبلغ القسط أو الدفعة'
-                          : 'المبلغ',
+                  labelText: _type == 'expense' &&
+                          _withinBudget &&
+                          _isDebtOrSubscription
+                      ? 'مبلغ القسط أو الدفعة'
+                      : 'المبلغ',
                   prefixIcon: const Icon(Icons.payments_rounded),
                 ),
               ),
               const SizedBox(height: 12),
             ],
-            if (_type == 'expense' && _withinBudget && _isDebtOrSubscription) ...[
+            if (_type == 'expense' &&
+                _withinBudget &&
+                _isDebtOrSubscription) ...[
               TextField(
                 controller: _debtPrincipalController,
                 keyboardType:
@@ -338,12 +342,17 @@ class _RecurringTransactionComposerScreenState
                 items: const [
                   DropdownMenuItem(value: 'daily', child: Text('يومي')),
                   DropdownMenuItem(value: 'weekly', child: Text('أسبوعي')),
-                  DropdownMenuItem(value: 'biweekly', child: Text('كل أسبوعين')),
-                  DropdownMenuItem(value: 'every_3_weeks', child: Text('كل 3 أسابيع')),
+                  DropdownMenuItem(
+                      value: 'biweekly', child: Text('كل أسبوعين')),
+                  DropdownMenuItem(
+                      value: 'every_3_weeks', child: Text('كل 3 أسابيع')),
                   DropdownMenuItem(value: 'monthly', child: Text('شهري')),
-                  DropdownMenuItem(value: 'every_2_months', child: Text('كل شهرين')),
-                  DropdownMenuItem(value: 'every_3_months', child: Text('كل 3 شهور')),
-                  DropdownMenuItem(value: 'every_6_months', child: Text('كل 6 شهور')),
+                  DropdownMenuItem(
+                      value: 'every_2_months', child: Text('كل شهرين')),
+                  DropdownMenuItem(
+                      value: 'every_3_months', child: Text('كل 3 شهور')),
+                  DropdownMenuItem(
+                      value: 'every_6_months', child: Text('كل 6 شهور')),
                   DropdownMenuItem(value: 'yearly', child: Text('سنوي')),
                 ],
                 onChanged: (value) {
@@ -376,7 +385,8 @@ class _RecurringTransactionComposerScreenState
                 ),
                 items: const [
                   DropdownMenuItem(value: 'auto', child: Text('تلقائي')),
-                  DropdownMenuItem(value: 'confirm', child: Text('يحتاج تأكيد')),
+                  DropdownMenuItem(
+                      value: 'confirm', child: Text('يحتاج تأكيد')),
                 ],
                 onChanged: (value) {
                   if (value != null) {
@@ -414,10 +424,13 @@ class _RecurringTransactionComposerScreenState
                           ),
                         ]
                       : const [
-                          DropdownMenuItem(value: 0, child: Text('في نفس اليوم')),
+                          DropdownMenuItem(
+                              value: 0, child: Text('في نفس اليوم')),
                           DropdownMenuItem(value: 1, child: Text('مبكر بيوم')),
-                          DropdownMenuItem(value: 2, child: Text('مبكر بيومين')),
-                          DropdownMenuItem(value: 3, child: Text('مبكر بـ 3 أيام')),
+                          DropdownMenuItem(
+                              value: 2, child: Text('مبكر بيومين')),
+                          DropdownMenuItem(
+                              value: 3, child: Text('مبكر بـ 3 أيام')),
                         ],
                   onChanged: (value) {
                     if (value != null) {
@@ -474,7 +487,8 @@ class _RecurringTransactionComposerScreenState
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        color:
+            theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(24),
       ),
       child: Row(
@@ -531,7 +545,8 @@ class _RecurringTransactionComposerScreenState
           padding: const EdgeInsets.symmetric(vertical: 16),
           child: Column(
             children: [
-              Icon(icon, color: selected ? Colors.white : theme.colorScheme.onSurface),
+              Icon(icon,
+                  color: selected ? Colors.white : theme.colorScheme.onSurface),
               const SizedBox(height: 6),
               Text(
                 label,
@@ -811,7 +826,8 @@ class _RecurringTransactionComposerScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('أيام التكرار', style: TextStyle(fontWeight: FontWeight.w800)),
+          const Text('أيام التكرار',
+              style: TextStyle(fontWeight: FontWeight.w800)),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -873,7 +889,8 @@ class _RecurringTransactionComposerScreenState
         }
       }
       if (_targetJarId != null) {
-        final jar = budget.linkedWallets.where((item) => item.id == _targetJarId);
+        final jar =
+            budget.linkedWallets.where((item) => item.id == _targetJarId);
         if (jar.isNotEmpty) {
           return jar.first.categories;
         }
@@ -907,8 +924,7 @@ class _RecurringTransactionComposerScreenState
         _type == 'income' && _withinBudget && _isVariableIncome
             ? 'manual'
             : _executionType;
-    final principalRaw =
-        double.tryParse(_debtPrincipalController.text.trim());
+    final principalRaw = double.tryParse(_debtPrincipalController.text.trim());
     final debtPrincipalTotal = (_type == 'expense' &&
             _withinBudget &&
             _isDebtOrSubscription &&
@@ -939,9 +955,10 @@ class _RecurringTransactionComposerScreenState
       scheduledTime: _showRecurrenceDetails ? _formatTime(_selectedTime) : null,
       reminderLeadDays:
           effectiveExecutionType == 'confirm' ? _reminderLeadDays : null,
-      allocationId: _type == 'expense' && _withinBudget && !_isDebtOrSubscription
-          ? _allocationId
-          : null,
+      allocationId:
+          _type == 'expense' && _withinBudget && !_isDebtOrSubscription
+              ? _allocationId
+              : null,
       targetJarId: _type == 'expense' && _withinBudget && !_isDebtOrSubscription
           ? _targetJarId
           : null,
@@ -1050,12 +1067,14 @@ class _RecurringTransactionComposerScreenState
     }
 
     if (widget.returnOnSave) {
-      Navigator.of(context).pop(const RecurringTransactionComposerResult.deleted());
+      Navigator.of(context)
+          .pop(const RecurringTransactionComposerResult.deleted());
       return;
     }
 
     if (widget.initialRecurring != null) {
-      await widget.cubit.deleteRecurringTransaction(widget.initialRecurring!.id);
+      await widget.cubit
+          .deleteRecurringTransaction(widget.initialRecurring!.id);
     }
 
     if (!mounted) return;
@@ -1116,8 +1135,8 @@ class _RecurringTransactionComposerScreenState
   }
 
   Color _parseColor(String hex) {
-    final value = int.tryParse(hex.replaceFirst('#', ''), radix: 16) ??
-        0x165b47;
+    final value =
+        int.tryParse(hex.replaceFirst('#', ''), radix: 16) ?? 0x165b47;
     return Color(0xFF000000 | value);
   }
 }

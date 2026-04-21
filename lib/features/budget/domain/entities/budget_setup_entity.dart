@@ -32,7 +32,8 @@ class IncomeSourceEntity {
         'isDefault': isDefault,
       };
 
-  factory IncomeSourceEntity.fromMap(Map<String, dynamic> map) => IncomeSourceEntity(
+  factory IncomeSourceEntity.fromMap(Map<String, dynamic> map) =>
+      IncomeSourceEntity(
         id: map['id'] as String? ?? '',
         name: map['name'] as String? ?? '',
         amount: (map['amount'] as num?)?.toDouble() ?? 0,
@@ -61,7 +62,8 @@ class AllocationFundingEntity {
         'plannedAmount': plannedAmount,
       };
 
-  factory AllocationFundingEntity.fromMap(Map<String, dynamic> map) => AllocationFundingEntity(
+  factory AllocationFundingEntity.fromMap(Map<String, dynamic> map) =>
+      AllocationFundingEntity(
         id: map['id'] as String? ?? '',
         incomeSourceId: map['incomeSourceId'] as String? ?? '',
         plannedAmount: (map['plannedAmount'] as num?)?.toDouble() ?? 0,
@@ -97,7 +99,8 @@ class AllocationEntity {
         'categories': categories.map((e) => e.toMap()).toList(),
       };
 
-  factory AllocationEntity.fromMap(Map<String, dynamic> map) => AllocationEntity(
+  factory AllocationEntity.fromMap(Map<String, dynamic> map) =>
+      AllocationEntity(
         id: map['id'] as String? ?? '',
         name: map['name'] as String? ?? '',
         icon: map['icon'] as String? ?? 'category',
@@ -131,7 +134,8 @@ class LinkedWalletEntityFunding {
         'plannedAmount': plannedAmount,
       };
 
-  factory LinkedWalletEntityFunding.fromMap(Map<String, dynamic> map) => LinkedWalletEntityFunding(
+  factory LinkedWalletEntityFunding.fromMap(Map<String, dynamic> map) =>
+      LinkedWalletEntityFunding(
         id: map['id'] as String? ?? '',
         incomeSourceId: map['incomeSourceId'] as String? ?? '',
         plannedAmount: (map['plannedAmount'] as num?)?.toDouble() ?? 0,
@@ -179,7 +183,8 @@ class LinkedWalletEntity {
         'categories': categories.map((e) => e.toMap()).toList(),
       };
 
-  factory LinkedWalletEntity.fromMap(Map<String, dynamic> map) => LinkedWalletEntity(
+  factory LinkedWalletEntity.fromMap(Map<String, dynamic> map) =>
+      LinkedWalletEntity(
         id: map['id'] as String? ?? '',
         name: map['name'] as String? ?? '',
         balance: (map['balance'] as num?)?.toDouble() ?? 0,
@@ -265,24 +270,24 @@ class BudgetSetupEntity {
   final double totalAllocated;
   final double unallocatedAmount;
 
-  factory BudgetSetupEntity.initial(String walletId) => BudgetSetupEntity(
+  factory BudgetSetupEntity.initial(String walletId) => const BudgetSetupEntity(
         startDay: 1,
         cycleMode: 'confirm',
         bufferEndBehavior: 'to-savings',
         incomeSources: [
-          IncomeSourceEntity(
-            id: 'salary-default',
-            name: 'دخل جديد',
-            amount: 0,
-            date: 1,
-            type: 'confirm',
-            targetWalletId: walletId,
-            isDefault: true,
-          ),
+          // IncomeSourceEntity(
+          //   id: 'salary-default',
+          //   name: 'دخل جديد',
+          //   amount: 0,
+          //   date: 1,
+          //   type: 'confirm',
+          //   targetWalletId: walletId,
+          //   isDefault: true,
+          // ),
         ],
-        allocations: const [],
-        linkedWallets: const [],
-        debts: const [],
+        allocations: [],
+        linkedWallets: [],
+        debts: [],
         totalIncome: 0,
         totalAllocated: 0,
         unallocatedAmount: 0,
@@ -327,7 +332,8 @@ class BudgetSetupEntity {
         'unallocatedAmount': unallocatedAmount,
       };
 
-  factory BudgetSetupEntity.fromMap(Map<String, dynamic> map) => BudgetSetupEntity(
+  factory BudgetSetupEntity.fromMap(Map<String, dynamic> map) =>
+      BudgetSetupEntity(
         startDay: map['startDay'] as int? ?? 1,
         cycleMode: map['cycleMode'] as String? ?? 'confirm',
         bufferEndBehavior: map['bufferEndBehavior'] as String? ?? 'to-savings',

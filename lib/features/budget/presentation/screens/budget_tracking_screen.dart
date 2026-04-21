@@ -53,7 +53,7 @@ class _StaticInfoCard extends StatelessWidget {
 class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month, 1);
   bool _isIncomeExpanded = false;
-  bool _isDebtExpanded = false;
+  final bool _isDebtExpanded = false;
   String? _dismissedAutoIncomeMonthKey;
   String _id(String prefix) =>
       '$prefix-${DateTime.now().microsecondsSinceEpoch}';
@@ -86,7 +86,8 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
             isCurrentMonthView && _hasPendingIncome(budget, incomeTx);
         final hasPendingDebt =
             isCurrentMonthView && _hasPendingDebt(state, budget, monthTx);
-        final monthKey = '${_month.year}-${_month.month.toString().padLeft(2, '0')}';
+        final monthKey =
+            '${_month.year}-${_month.month.toString().padLeft(2, '0')}';
         final shouldAutoExpandIncome =
             hasPendingIncome && _dismissedAutoIncomeMonthKey != monthKey;
         final isIncomeExpanded = _isIncomeExpanded || shouldAutoExpandIncome;
@@ -151,15 +152,15 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
                             : null,
                       ),
                     ]
-                  : budget.allocations
-                      .map((allocation) =>
-                          _allocationSummaryTile(state, allocation, monthTx)),
+                  : budget.allocations.map((allocation) =>
+                      _allocationSummaryTile(state, allocation, monthTx)),
               const SizedBox(height: 18),
               _sectionTitle('الحصالات'),
               const SizedBox(height: 12),
               ...budgetJars.isEmpty
                   ? const <Widget>[
-                      _StaticInfoCard(text: 'لا توجد حصالات ممولة في هذا الشهر.')
+                      _StaticInfoCard(
+                          text: 'لا توجد حصالات ممولة في هذا الشهر.')
                     ]
                   : budgetJars
                       .map((jar) => _jarSummaryTile(state, jar, monthTx)),
@@ -423,7 +424,9 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest
+        color: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
             .withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
@@ -466,7 +469,8 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+            color:
+                Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
             blurRadius: 22,
             offset: const Offset(0, 12),
           ),
@@ -699,8 +703,9 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
                             style: TextStyle(
                               fontSize: compactMeta ? 11 : 12,
                               color: theme.colorScheme.onSurfaceVariant,
-                              fontWeight:
-                                  compactMeta ? FontWeight.w600 : FontWeight.w700,
+                              fontWeight: compactMeta
+                                  ? FontWeight.w600
+                                  : FontWeight.w700,
                             ),
                           ),
                           if (supportingCustom != null) ...[
@@ -804,8 +809,7 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
         height: 4,
         margin: const EdgeInsets.only(bottom: 14),
         decoration: BoxDecoration(
-          color:
-              theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.35),
+          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.35),
           borderRadius: BorderRadius.circular(999),
         ),
       ),
@@ -859,14 +863,11 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
     final isExpense = item.type == 'expense';
     final amtColor = isIncome
         ? const Color(0xFF0F9D7A)
-        : (isExpense
-            ? theme.colorScheme.error
-            : theme.colorScheme.primary);
+        : (isExpense ? theme.colorScheme.error : theme.colorScheme.primary);
     final icon = isIncome
         ? Icons.add_rounded
         : (isExpense ? Icons.remove_rounded : Icons.swap_horiz_rounded);
-    final defaultTitle =
-        isIncome ? 'دخل' : (isExpense ? 'مصروف' : 'تحويل');
+    final defaultTitle = isIncome ? 'دخل' : (isExpense ? 'مصروف' : 'تحويل');
     final prefix = isIncome ? '+' : (isExpense ? '-' : '');
 
     return Padding(
@@ -888,8 +889,7 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
             });
           },
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(18),
@@ -958,8 +958,7 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
     return Column(
       children: [
         ...transactions.map(
-          (item) =>
-              _trackingMonthTransactionTile(sheetContext, theme, item),
+          (item) => _trackingMonthTransactionTile(sheetContext, theme, item),
         ),
         if (transactions.isEmpty)
           Padding(
@@ -1130,7 +1129,8 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
   ) {
     final state = widget.cubit.state;
     for (final source in budget.incomeSources) {
-      final sourceTx = incomeTx.where((t) => t.incomeSourceId == source.id).toList();
+      final sourceTx =
+          incomeTx.where((t) => t.incomeSourceId == source.id).toList();
       final pendingMeta = _incomePendingMeta(state, source, sourceTx);
       if (pendingMeta?['pending'] == true) {
         return true;
@@ -1195,8 +1195,9 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final reminderDate = dueDate.subtract(Duration(days: reminderLeadDays));
-    final canEarly =
-        reminderLeadDays > 0 && !today.isBefore(reminderDate) && today.isBefore(dueDate);
+    final canEarly = reminderLeadDays > 0 &&
+        !today.isBefore(reminderDate) &&
+        today.isBefore(dueDate);
     final isDueOrLate = !today.isBefore(dueDate);
     if (!canEarly && !isDueOrLate) {
       return null;
@@ -1217,7 +1218,6 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
       'timeLabel': timeLabel,
     };
   }
-
 
   Widget _compactActionButton({
     required String label,
@@ -1273,8 +1273,8 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
           alloc.funding.fold<double>(0, (s, f) => s + f.plannedAmount);
       if (plannedTotal <= 0) continue;
       final share = fromThis / plannedTotal;
-      for (final t in monthTx.where(
-          (x) => x.type == 'expense' && x.allocationId == alloc.id)) {
+      for (final t in monthTx
+          .where((x) => x.type == 'expense' && x.allocationId == alloc.id)) {
         counted.add(t.id);
         total += t.amount * share;
       }
@@ -1282,9 +1282,8 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
 
     for (final debt in budget.debts) {
       if (debt.fundingSource != incomeSourceId) continue;
-      for (final t in monthTx.where((x) =>
-          x.type == 'expense' &&
-          x.notes?.contains(debt.name) == true)) {
+      for (final t in monthTx.where(
+          (x) => x.type == 'expense' && x.notes?.contains(debt.name) == true)) {
         if (!counted.contains(t.id)) {
           counted.add(t.id);
           total += t.amount;
@@ -1304,8 +1303,7 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
     if (source.isVariable) return null;
     final pool = _incomeDisplayPool(source, received);
     if (pool <= 0) return null;
-    final spent =
-        _spentAttributedToIncomeSource(budget, monthTx, source.id);
+    final spent = _spentAttributedToIncomeSource(budget, monthTx, source.id);
     final ratio = ((pool - spent) / pool).clamp(0.0, 1.0);
     return ratio;
   }
@@ -1454,8 +1452,8 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
     ];
   }
 
-  Widget _allocationSummaryTile(AppStateEntity state, AllocationEntity allocation,
-      List<TransactionEntity> monthTx) {
+  Widget _allocationSummaryTile(AppStateEntity state,
+      AllocationEntity allocation, List<TransactionEntity> monthTx) {
     final planned =
         allocation.funding.fold<double>(0, (s, f) => s + f.plannedAmount);
     final funded = allocation.funding.fold<double>(0, (sum, f) {
@@ -1512,8 +1510,7 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
       ...budget.debts.map((debt) {
         final recurring = _linkedRecurringDebt(state, debt);
         final allDebtTx = _allDebtPayments(state, debt);
-        final paid =
-            allDebtTx.fold<double>(0, (s, t) => s + t.amount);
+        final paid = allDebtTx.fold<double>(0, (s, t) => s + t.amount);
         final remaining = (debt.amount - paid).clamp(0.0, debt.amount);
         final paidRatio =
             debt.amount <= 0 ? 0.0 : (paid / debt.amount).clamp(0.0, 1.0);
@@ -1595,9 +1592,7 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
         : ratio < 0.85
             ? Colors.orange
             : theme.colorScheme.error;
-    final tx = monthTx
-        .where((t) => t.allocationId == allocation.id)
-        .toList();
+    final tx = monthTx.where((t) => t.allocationId == allocation.id).toList();
 
     await showModalBottomSheet<void>(
       context: context,
@@ -1739,8 +1734,7 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
         theme: theme,
         accent: accent,
         transactions: tx,
-        emptyMessage:
-            'لا توجد معاملات مرتبطة بهذه الحصالة في هذا الشهر.',
+        emptyMessage: 'لا توجد معاملات مرتبطة بهذه الحصالة في هذا الشهر.',
         sheetContext: sheetContext,
         tileBuilder: (item) =>
             _trackingMonthTransactionTile(sheetContext, theme, item),
@@ -1783,6 +1777,17 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
                       fontSize: 18,
                     ),
                   ),
+                  IconButton(
+                    onPressed: () {
+                      Navigator.pop(sheetContext);
+                      Future.microtask(() {
+                        if (!mounted) return;
+                        _openBudgetSetupScreen();
+                      });
+                    },
+                    icon: const Icon(Icons.settings_outlined, size: 18),
+                    // label: const Text('تعديل الميزانية'),
+                  ),
                 ],
               ),
               const SizedBox(height: 14),
@@ -1809,20 +1814,10 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
               ],
             ],
           ),
-          const SizedBox(height: 14),
-          Center(
-            child: FilledButton.icon(
-              onPressed: () {
-                Navigator.pop(sheetContext);
-                Future.microtask(() {
-                  if (!mounted) return;
-                  _openBudgetSetupScreen();
-                });
-              },
-              icon: const Icon(Icons.edit_outlined),
-              label: const Text('تعديل الميزانية'),
-            ),
-          ),
+          // const SizedBox(height: 14),
+          // Center(
+          //   child:
+          // ),
         ],
       ),
     );
@@ -1837,13 +1832,10 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
     final theme = Theme.of(context);
     const accent = Color(0xFF0F9D7A);
     final dueDate = _incomeDueDateForMonth(source, _month);
-    final received =
-        sourceIncomeTx.fold<double>(0, (s, t) => s + t.amount);
-    final displayedAmount =
-        received <= 0 ? source.amount : received;
+    final received = sourceIncomeTx.fold<double>(0, (s, t) => s + t.amount);
+    final displayedAmount = received <= 0 ? source.amount : received;
     final pool = _incomeDisplayPool(source, received);
-    final spent =
-        _spentAttributedToIncomeSource(budget, monthTx, source.id);
+    final spent = _spentAttributedToIncomeSource(budget, monthTx, source.id);
     final afterSpend = (pool - spent).clamp(0.0, pool);
     final remProgress =
         _incomeRemainingProgress(source, received, budget, monthTx);
@@ -1858,6 +1850,7 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (sheetContext) => SizedBox(
         height: MediaQuery.of(sheetContext).size.height * 0.76,
         child: ListView(
@@ -1956,8 +1949,8 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
                         value: remProgress,
                         minHeight: 8,
                         color: accent,
-                        backgroundColor: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.10),
+                        backgroundColor:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.10),
                       ),
                     ),
                   ],
@@ -2056,15 +2049,17 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
       debt.executionDay.clamp(1, 28),
     );
     final paid = tx.fold<double>(0, (s, t) => s + t.amount);
-    final paidRatio = debt.amount <= 0
-        ? null
-        : (paid / debt.amount).clamp(0.0, 1.0);
-    final sortedTx = [...tx]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    final pctLabel = paidRatio == null ? '0' : (paidRatio * 100).round().toString();
+    final paidRatio =
+        debt.amount <= 0 ? null : (paid / debt.amount).clamp(0.0, 1.0);
+    final sortedTx = [...tx]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final pctLabel =
+        paidRatio == null ? '0' : (paidRatio * 100).round().toString();
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (sheetContext) => SizedBox(
         height: MediaQuery.of(sheetContext).size.height * 0.76,
         child: ListView(
@@ -2222,8 +2217,10 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
       if (linked.isEmpty && linkedRecurring != null) {
         await widget.cubit.deleteRecurringTransaction(linkedRecurring.id);
       }
-      final incomes = setup.incomeSources.where((e) => e.id != current.id).toList();
-      await widget.cubit.updateBudgetSetup(setup.copyWith(incomeSources: incomes));
+      final incomes =
+          setup.incomeSources.where((e) => e.id != current.id).toList();
+      await widget.cubit
+          .updateBudgetSetup(setup.copyWith(incomeSources: incomes));
       return;
     }
 
@@ -2245,7 +2242,8 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
     final incomes = setup.incomeSources
         .map((e) => e.id == current.id ? updated : e)
         .toList();
-    await widget.cubit.updateBudgetSetup(setup.copyWith(incomeSources: incomes));
+    await widget.cubit
+        .updateBudgetSetup(setup.copyWith(incomeSources: incomes));
 
     if (linkedRecurring == null) {
       await widget.cubit.addRecurringTransaction(
@@ -2300,8 +2298,9 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
   Future<void> _editDebtDirect(DebtEntity current) async {
     final state = widget.cubit.state;
     final linkedRecurring = _linkedRecurringDebt(state, current);
-    final fallbackWalletId =
-        state.wallets.isNotEmpty ? state.wallets.first.id : 'wallet-cash-default';
+    final fallbackWalletId = state.wallets.isNotEmpty
+        ? state.wallets.first.id
+        : 'wallet-cash-default';
     final draftRecurring = linkedRecurring ??
         RecurringTransactionEntity(
           id: current.recurringTransactionId ?? '',
@@ -2358,9 +2357,8 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
     final recurringId =
         linkedRecurring?.id ?? current.recurringTransactionId ?? _id('rec');
     final principal = recurring.debtPrincipalTotal;
-    final debtAmount = principal != null && principal > 0
-        ? principal
-        : recurring.amount;
+    final debtAmount =
+        principal != null && principal > 0 ? principal : recurring.amount;
     final updated = DebtEntity(
       id: current.id,
       name: recurring.name,
@@ -2370,9 +2368,8 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
       fundingSource: current.fundingSource,
       recurringTransactionId: recurringId,
     );
-    final next = setup.debts
-        .map((d) => d.id == current.id ? updated : d)
-        .toList();
+    final next =
+        setup.debts.map((d) => d.id == current.id ? updated : d).toList();
     await widget.cubit.updateBudgetSetup(setup.copyWith(debts: next));
 
     final recurringToSave = recurring.copyWith(
@@ -2451,9 +2448,8 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
 
     final recurringId = _id('rec');
     final principal = recurring.debtPrincipalTotal;
-    final debtAmount = principal != null && principal > 0
-        ? principal
-        : recurring.amount;
+    final debtAmount =
+        principal != null && principal > 0 ? principal : recurring.amount;
     final debt = DebtEntity(
       id: _id('debt'),
       name: recurring.name,
@@ -2625,7 +2621,8 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
     return Duration(days: value.clamp(0, 3));
   }
 
-  Map<String, dynamic>? _expensePendingMeta(RecurringTransactionEntity? recurring) {
+  Map<String, dynamic>? _expensePendingMeta(
+      RecurringTransactionEntity? recurring) {
     if (recurring == null || recurring.executionType != 'confirm') {
       return null;
     }
@@ -2639,7 +2636,8 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
         : DateTime.tryParse(recurring.snoozedUntil!);
     if (snoozedUntil != null && now.isBefore(snoozedUntil)) {
       return <String, dynamic>{
-        'status': 'مؤجل حتى ${DateFormat('d/M - h:mm a', 'ar').format(snoozedUntil)}',
+        'status':
+            'مؤجل حتى ${DateFormat('d/M - h:mm a', 'ar').format(snoozedUntil)}',
         'occurrence': occurrence,
         'pending': true,
       };
@@ -2647,13 +2645,15 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
     final reminderAt = occurrence.subtract(_reminderDuration(recurring));
     if (now.isBefore(reminderAt)) {
       return <String, dynamic>{
-        'status': 'الاستحقاق القادم ${DateFormat('d/M - h:mm a', 'ar').format(occurrence)}',
+        'status':
+            'الاستحقاق القادم ${DateFormat('d/M - h:mm a', 'ar').format(occurrence)}',
         'occurrence': occurrence,
         'pending': false,
       };
     }
     return <String, dynamic>{
-      'status': 'معلق حتى ${DateFormat('d/M - h:mm a', 'ar').format(occurrence)}',
+      'status':
+          'معلق حتى ${DateFormat('d/M - h:mm a', 'ar').format(occurrence)}',
       'occurrence': occurrence,
       'pending': true,
     };
@@ -2775,6 +2775,7 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (context) => SizedBox(
         height: MediaQuery.of(context).size.height * 0.72,
         child: ListView(
@@ -2801,7 +2802,8 @@ class _BudgetTrackingScreenState extends State<BudgetTrackingScreen> {
     );
   }
 
-  Widget _row(String label, double value, {bool danger = false, String? suffix}) {
+  Widget _row(String label, double value,
+      {bool danger = false, String? suffix}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
@@ -2853,7 +2855,8 @@ class _DraggableFilterableTxSheet extends StatefulWidget {
       _DraggableFilterableTxSheetState();
 }
 
-class _DraggableFilterableTxSheetState extends State<_DraggableFilterableTxSheet> {
+class _DraggableFilterableTxSheetState
+    extends State<_DraggableFilterableTxSheet> {
   bool _newestFirst = true;
   _TxKindFilter _kind = _TxKindFilter.all;
 
@@ -2886,6 +2889,7 @@ class _DraggableFilterableTxSheetState extends State<_DraggableFilterableTxSheet
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      useSafeArea: true,
       builder: (ctx) {
         return SafeArea(
           child: Padding(
@@ -2983,7 +2987,7 @@ class _DraggableFilterableTxSheetState extends State<_DraggableFilterableTxSheet
     final theme = widget.theme;
 
     return SizedBox(
-      height: MediaQuery.sizeOf(context).height,
+      // height: MediaQuery.sizeOf(context).height,
       child: DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.76,
@@ -3061,4 +3065,3 @@ class _DraggableFilterableTxSheetState extends State<_DraggableFilterableTxSheet
     );
   }
 }
-

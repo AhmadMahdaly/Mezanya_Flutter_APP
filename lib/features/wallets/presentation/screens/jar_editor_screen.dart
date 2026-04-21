@@ -58,8 +58,9 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
           [
             LinkedWalletEntityFunding(
               id: widget.idFactory('fund'),
-              incomeSourceId:
-                  widget.incomeSources.isNotEmpty ? widget.incomeSources.first.id : '',
+              incomeSourceId: widget.incomeSources.isNotEmpty
+                  ? widget.incomeSources.first.id
+                  : '',
               plannedAmount: 0,
             ),
           ],
@@ -101,8 +102,9 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
         ..._funding,
         LinkedWalletEntityFunding(
           id: widget.idFactory('fund'),
-          incomeSourceId:
-              widget.incomeSources.isNotEmpty ? widget.incomeSources.first.id : '',
+          incomeSourceId: widget.incomeSources.isNotEmpty
+              ? widget.incomeSources.first.id
+              : '',
           plannedAmount: 0,
         ),
       ];
@@ -133,7 +135,8 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('حذف مصدر التمويل'),
-        content: const Text('سيتم حذف مصدر التمويل من هذه الحصالة. هل تريد المتابعة؟'),
+        content: const Text(
+            'سيتم حذف مصدر التمويل من هذه الحصالة. هل تريد المتابعة؟'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -168,11 +171,13 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
     }
 
     final cleanedFunding = _funding
-        .where((item) => item.incomeSourceId.isNotEmpty && item.plannedAmount > 0)
+        .where(
+            (item) => item.incomeSourceId.isNotEmpty && item.plannedAmount > 0)
         .toList();
     final day = (int.tryParse(_dayController.text.trim()) ?? 1).clamp(1, 28);
     final balance = double.tryParse(_balanceController.text.trim()) ?? 0;
-    final primary = cleanedFunding.isNotEmpty ? cleanedFunding.first.incomeSourceId : '';
+    final primary =
+        cleanedFunding.isNotEmpty ? cleanedFunding.first.incomeSourceId : '';
 
     final entity = LinkedWalletEntity(
       id: widget.current?.id ?? widget.idFactory('linked'),
@@ -200,7 +205,8 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('حذف الحصالة'),
-        content: const Text('سيتم حذف الحصالة من خطة الميزانية. هل تريد المتابعة؟'),
+        content:
+            const Text('سيتم حذف الحصالة من خطة الميزانية. هل تريد المتابعة؟'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -237,7 +243,8 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
               minimumSize: const Size.fromHeight(54),
               backgroundColor: accent,
             ),
-            child: Text(widget.current == null ? 'إضافة الحصالة' : 'حفظ التعديلات'),
+            child: Text(
+                widget.current == null ? 'إضافة الحصالة' : 'حفظ التعديلات'),
           ),
         ),
       ),
@@ -334,7 +341,8 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: _balanceController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(
                     labelText: 'الرصيد الحالي',
                     hintText: 'اكتب الرصيد الموجود الآن داخل الحصالة',
@@ -353,7 +361,8 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
                       ),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+                        color:
+                            colorScheme.outlineVariant.withValues(alpha: 0.6),
                       ),
                     ),
                     child: Row(
@@ -415,7 +424,8 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
                   ),
                   items: const [
                     DropdownMenuItem(value: 'auto', child: Text('تلقائي')),
-                    DropdownMenuItem(value: 'confirm', child: Text('يحتاج تأكيد')),
+                    DropdownMenuItem(
+                        value: 'confirm', child: Text('يحتاج تأكيد')),
                     DropdownMenuItem(value: 'manual', child: Text('يدوي')),
                   ],
                   onChanged: (value) {
@@ -451,8 +461,9 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
                     label: const Text('إضافة مصدر'),
                   ),
             child: widget.incomeSources.isEmpty
-                ? _JarEmptyState(
-                    message: 'لا توجد مصادر دخل متاحة الآن لربط تمويل الحصالة بها.',
+                ? const _JarEmptyState(
+                    message:
+                        'لا توجد مصادر دخل متاحة الآن لربط تمويل الحصالة بها.',
                   )
                 : Column(
                     children: _funding
@@ -484,16 +495,17 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
             const SizedBox(height: 14),
             _JarEditorSection(
               title: 'إدارة الحصالة',
-              subtitle: 'يمكنك حذف الحصالة من هنا بدل جعل الحذف سهل الوصول بالخطأ.',
+              subtitle:
+                  'يمكنك حذف الحصالة من هنا بدل جعل الحذف سهل الوصول بالخطأ.',
               child: Align(
                 alignment: AlignmentDirectional.centerStart,
                 child: TextButton.icon(
-                  onPressed: _isDefaultJar
-                      ? null
-                      : _requestDeleteJar,
+                  onPressed: _isDefaultJar ? null : _requestDeleteJar,
                   icon: const Icon(Icons.delete_outline_rounded),
                   label: Text(
-                    _isDefaultJar ? 'حصالة افتراضية غير قابلة للحذف' : 'حذف الحصالة',
+                    _isDefaultJar
+                        ? 'حصالة افتراضية غير قابلة للحذف'
+                        : 'حذف الحصالة',
                   ),
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xFFC62828),
@@ -595,6 +607,9 @@ class _JarFundingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isValidValue = incomeSources.any(
+      (income) => income.id == item.incomeSourceId,
+    );
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       decoration: BoxDecoration(
@@ -607,35 +622,35 @@ class _JarFundingCard extends StatelessWidget {
       child: Column(
         children: [
           DropdownButtonFormField<String>(
-            initialValue: item.incomeSourceId.isEmpty ? null : item.incomeSourceId,
+            value: isValidValue ? item.incomeSourceId : null,
             decoration: const InputDecoration(
               labelText: 'مصدر الدخل',
             ),
             items: incomeSources
                 .map(
-                  (income) => DropdownMenuItem(
+                  (income) => DropdownMenuItem<String>(
                     value: income.id,
                     child: Text(income.name),
                   ),
                 )
                 .toList(),
             onChanged: (value) {
-              if (value == null) {
-                return;
-              }
+              if (value == null) return;
               onChanged(incomeSourceId: value);
             },
           ),
           const SizedBox(height: 12),
           TextFormField(
-            initialValue:
-                item.plannedAmount == 0 ? '' : item.plannedAmount.toStringAsFixed(0),
+            initialValue: item.plannedAmount == 0
+                ? ''
+                : item.plannedAmount.toStringAsFixed(0),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(
               labelText: 'المبلغ الشهري',
               hintText: 'اكتب القيمة التي ستتحول شهريًا',
             ),
-            onChanged: (value) => onChanged(amount: double.tryParse(value) ?? 0),
+            onChanged: (value) =>
+                onChanged(amount: double.tryParse(value) ?? 0),
           ),
           const SizedBox(height: 8),
           Align(

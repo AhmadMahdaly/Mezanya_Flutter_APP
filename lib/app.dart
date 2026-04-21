@@ -452,7 +452,7 @@ class _MoreTab extends StatelessWidget {
             child: Card(
               child: ListTile(
                 title: Text(item.key),
-                subtitle: Text(item.value),
+                // subtitle: Text(item.value),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () {
                   if (item.value == 'budget-setup') {
@@ -550,7 +550,7 @@ class _MoreTab extends StatelessWidget {
             );
           },
           icon: const Icon(Icons.logout_rounded),
-          label: const Text('طھط³ط¬ظٹظ„ ط§ظ„ط®ط±ظˆط¬'),
+          label: const Text('تسجيل الخروج'),
         ),
       ],
     );

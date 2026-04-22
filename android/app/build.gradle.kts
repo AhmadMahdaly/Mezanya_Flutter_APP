@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.korassa_mobile"
+    namespace = "com.mezanya.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 

@@ -1,4 +1,4 @@
-package com.example.korassa_mobile
+package com.mezanya.app
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -6,7 +6,7 @@ import '../../../categories/presentation/screens/categories_screen.dart';
 import '../../../goals/presentation/screens/goals_screen.dart';
 import '../../../logs/presentation/screens/logs_screen.dart';
 import '../../../notifications/presentation/screens/notifications_center_screen.dart';
-import '../../../settings/presentation/screens/app_settings_refactored_screen.dart';
+import 'package:mezanya_app/features/settings/presentation/screens/app_settings_screen.dart';
 import '../../../transactions/presentation/screens/recurring_transactions_screen.dart';
 import 'section_page_scaffold.dart';
 
@@ -55,9 +55,8 @@ class MoreTabContent extends StatelessWidget {
     final userName = state.userName.trim().isEmpty
         ? 'مستخدم ميزانية'
         : state.userName.trim();
-    final googleAccountLabel = state.googleEmail.isEmpty
-        ? 'غير متصل بحساب Google'
-        : state.googleEmail;
+    final googleAccountLabel =
+        state.googleEmail.isEmpty ? 'غير متصل بحساب Google' : state.googleEmail;
 
     return ListView(
       padding: const EdgeInsets.all(16),

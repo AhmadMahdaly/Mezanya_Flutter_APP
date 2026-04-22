@@ -1,11 +1,14 @@
+import 'dart:convert';
+import 'dart:developer';
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:http/http.dart' as http;
 
-// عدّل المسار حسب مشروعك
 import '../../../app_state/presentation/cubits/app_cubit.dart';
 
 class BackupSettingsScreen extends StatefulWidget {
@@ -23,20 +26,28 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
   static const primaryGreen = Color(0xFF2F6F5E);
   static const headerColor = Color(0xFFEFE8DD);
 
-  /// 🔐 Firebase
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: [
+      'email',
+      drive.DriveApi.driveFileScope,
+    ],
+  );
 
-  User? _user;
+  GoogleSignInAccount? _account;
   bool _loading = false;
 
   @override
   void initState() {
     super.initState();
-    _user = _auth.currentUser;
+    _loadAccount();
   }
 
-  /// 📁 Permission
+  Future<void> _loadAccount() async {
+    final acc = await _googleSignIn.signInSilently();
+    if (mounted) setState(() => _account = acc);
+  }
+
+  /// 📁 Permissions
   Future<bool> _permission() async {
     var s = await Permission.manageExternalStorage.request();
     if (s.isGranted) return true;
@@ -44,7 +55,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
     return s.isGranted;
   }
 
-  /// 💾 Save
+  /// 💾 Save once (LOCAL)
   Future<void> _saveOnce() async {
     if (!await _permission()) {
       _snack('لازم تسمح بالوصول للملفات');
@@ -55,16 +66,17 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
     if (dir == null) return;
 
     try {
-      final file =
-          File('$dir/backup_${DateTime.now().millisecondsSinceEpoch}.json');
+      final file = File(
+        '$dir/backup_${DateTime.now().millisecondsSinceEpoch}.json',
+      );
       await file.writeAsString(widget.cubit.exportStateJson());
-      _snack('تم حفظ النسخة بنجاح');
+      _snack('تم حفظ النسخة بنجاح ✔');
     } catch (e) {
-      _snack('فشل الحفظ');
+      _snack('فشل الحفظ: $e');
     }
   }
 
-  /// 📥 Import
+  /// 📥 Import (LOCAL)
   Future<void> _import() async {
     try {
       final r = await FilePicker.pickFiles(
@@ -75,68 +87,96 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
       if (r != null && r.files.single.path != null) {
         final data = await File(r.files.single.path!).readAsString();
         await widget.cubit.importStateJson(data);
-        _snack('تم استرجاع البيانات');
+        _snack('تم استرجاع البيانات ✔');
       }
     } catch (e) {
-      _snack('فشل الاستيراد');
+      _snack('فشل الاستيراد: $e');
     }
   }
 
-  /// 🔥 Google Sign-In (FIXED)
-  Future<void> _signIn() async {
+  /// ☁️ Upload to Drive
+  Future<void> _upload() async {
+    if (_account == null) {
+      _snack('سجل دخول من صفحة الإعدادات الأول');
+      return;
+    }
+
     try {
       setState(() => _loading = true);
 
-      final googleUser = await _googleSignIn.signIn();
+      final auth = await _account!.authentication;
+      final client = GoogleAuthClient(auth.accessToken!);
+      final api = drive.DriveApi(client);
 
-      if (googleUser == null) {
-        _snack('تم إلغاء العملية');
-        return;
-      }
+      final data = widget.cubit.exportStateJson();
 
-      final googleAuth = await googleUser.authentication;
-
-      if (googleAuth.idToken == null) {
-        throw Exception('Missing ID Token');
-      }
-
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
+      final media = drive.Media(
+        Stream.value(utf8.encode(data)),
+        data.length,
       );
 
-      final userCred = await _auth.signInWithCredential(credential);
+      final file = drive.File()..name = "mezanya_backup.json";
 
-      setState(() {
-        _user = userCred.user;
-      });
+      await api.files.create(file, uploadMedia: media);
 
-      _snack('تم تسجيل الدخول');
+      _snack('تم رفع النسخة ✔');
     } catch (e) {
-      debugPrint('GOOGLE SIGN IN ERROR: $e');
-
-      String msg = 'فشل تسجيل الدخول';
-
-      if (e.toString().contains('10')) {
-        msg = 'مشكلة SHA-1';
-      } else if (e.toString().contains('12500')) {
-        msg = 'إعداد Firebase غير صحيح';
-      }
-
-      _snack(msg);
+      _snack('فشل الرفع: $e');
+      log('UPLOAD ERROR: $e');
     } finally {
       setState(() => _loading = false);
     }
   }
 
-  Future<void> _signOut() async {
-    await _googleSignIn.signOut();
-    await _auth.signOut();
-    setState(() => _user = null);
+  /// ☁️ Download from Drive
+  Future<void> _download() async {
+    if (_account == null) {
+      _snack('سجل دخول من صفحة الإعدادات الأول');
+      return;
+    }
+
+    try {
+      setState(() => _loading = true);
+
+      final auth = await _account!.authentication;
+      final client = GoogleAuthClient(auth.accessToken!);
+      final api = drive.DriveApi(client);
+
+      final files = await api.files.list(
+        q: "name='mezanya_backup.json'",
+        $fields: "files(id, name)",
+      );
+
+      if (files.files == null || files.files!.isEmpty) {
+        _snack('لا يوجد نسخة');
+        return;
+      }
+
+      final fileId = files.files!.first.id!;
+
+      final media = await api.files.get(
+        fileId,
+        downloadOptions: drive.DownloadOptions.fullMedia,
+      ) as drive.Media;
+
+      final bytes = await media.stream.toList();
+      final data = utf8.decode(bytes.expand((e) => e).toList());
+
+      await widget.cubit.importStateJson(data);
+
+      _snack('تم الاسترجاع ✔');
+    } catch (e) {
+      _snack('فشل الاسترجاع: $e');
+      log('DOWNLOAD ERROR: $e');
+    } finally {
+      setState(() => _loading = false);
+    }
   }
 
   void _snack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg)),
+    );
   }
 
   @override
@@ -152,94 +192,118 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
         elevation: 0,
         foregroundColor: Colors.black,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      body: Stack(
         children: [
-          /// HEADER
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: headerColor,
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Row(
-              children: const [
-                Icon(Icons.backup, color: primaryGreen),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'احفظ بياناتك واسترجعها بسهولة',
-                    style: TextStyle(fontSize: 13),
+          ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              /// 🔰 HEADER
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: headerColor,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.cloud_sync, color: primaryGreen),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'احفظ بياناتك محلياً أو على Google Drive واسترجعها بسهولة',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              /// 💾 LOCAL BACKUP
+              _sectionTitle('النسخ المحلي'),
+              _card(
+                child: Column(
+                  children: [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.folder, color: primaryGreen),
+                      title: const Text('مسار الحفظ'),
+                      subtitle: Text(
+                        state.backupDirectoryPath.isEmpty
+                            ? 'غير محدد'
+                            : state.backupDirectoryPath,
+                      ),
+                      onTap: () async {
+                        final dir = await FilePicker.getDirectoryPath();
+                        if (dir != null) {
+                          widget.cubit.updateSettings(backupDirectoryPath: dir);
+                        }
+                      },
+                    ),
+                    const Divider(),
+                    _btn('حفظ نسخة يدوياً', Icons.save, _saveOnce),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              /// 📥 IMPORT
+              _sectionTitle('استيراد'),
+              _card(
+                child: _btn('استيراد ملف', Icons.download, _import),
+              ),
+
+              const SizedBox(height: 16),
+
+              /// 👤 ACCOUNT (عرض فقط)
+              _sectionTitle('الحساب'),
+              _card(
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading:
+                      const Icon(Icons.account_circle, color: primaryGreen),
+                  title: const Text('Google Account'),
+                  subtitle: Text(
+                    _account == null ? 'غير متصل' : _account!.email,
                   ),
                 ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          /// LOCAL
-          _sectionTitle('النسخ المحلي'),
-          _card(children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.folder, color: primaryGreen),
-              title: const Text('مسار الحفظ'),
-              subtitle: Text(
-                state.backupDirectoryPath.isEmpty
-                    ? 'غير محدد'
-                    : state.backupDirectoryPath,
               ),
-              onTap: () async {
-                final dir = await FilePicker.getDirectoryPath();
-                if (dir != null) {
-                  widget.cubit.updateSettings(backupDirectoryPath: dir);
-                }
-              },
+
+              const SizedBox(height: 16),
+
+              /// ☁️ GOOGLE DRIVE
+              _sectionTitle('Google Drive'),
+              _card(
+                child: Column(
+                  children: [
+                    _btn('رفع نسخة على Drive', Icons.cloud_upload, _upload),
+                    const SizedBox(height: 10),
+                    _btn('استرجاع من Drive', Icons.cloud_download, _download),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (_loading)
+            Container(
+              color: Colors.black26,
+              child: const Center(child: CircularProgressIndicator()),
             ),
-            const Divider(),
-            _btn('حفظ نسخة', Icons.save, _saveOnce),
-          ]),
-
-          const SizedBox(height: 16),
-
-          /// IMPORT
-          _sectionTitle('استيراد'),
-          _card(children: [
-            _btn('استيراد ملف', Icons.download, _import),
-          ]),
-
-          const SizedBox(height: 16),
-
-          /// GOOGLE
-          _sectionTitle('Google'),
-          _card(children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.account_circle, color: primaryGreen),
-              title: const Text('الحساب'),
-              subtitle: Text(_user == null ? 'غير متصل' : _user!.email ?? ''),
-            ),
-            const SizedBox(height: 10),
-            _btn(
-              _user == null ? 'ربط الحساب' : 'تسجيل الخروج',
-              _user == null ? Icons.link : Icons.logout,
-              _user == null ? _signIn : _signOut,
-            ),
-          ]),
         ],
       ),
     );
   }
 
-  Widget _card({required List<Widget> children}) {
+  Widget _card({required Widget child}) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Column(children: children),
+      child: child,
     );
   }
 
@@ -250,6 +314,10 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryGreen,
           foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
         onPressed: onTap,
         icon: Icon(icon),
@@ -259,7 +327,29 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
   }
 
   Widget _sectionTitle(String text) {
-    return Text(text,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14));
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+        ),
+      ),
+    );
+  }
+}
+
+/// 🔐 Google Client
+class GoogleAuthClient extends http.BaseClient {
+  final String token;
+  final http.Client _client = http.Client();
+
+  GoogleAuthClient(this.token);
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    request.headers['Authorization'] = 'Bearer $token';
+    return _client.send(request);
   }
 }

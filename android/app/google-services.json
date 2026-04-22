@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "609040380574-oi7qlf9028663638tlrtrnne2n87vg2i.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mezanya.app",
+            "certificate_hash": "5e8202c3d5d3ea300cf9a26d29327a9f41e8ddb5"
+          }
+        },
+        {
           "client_id": "609040380574-gttc94otebsgd89lfvjdepidfaumeggr.apps.googleusercontent.com",
           "client_type": 3
         }

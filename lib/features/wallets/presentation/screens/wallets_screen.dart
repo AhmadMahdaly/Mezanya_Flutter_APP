@@ -89,79 +89,150 @@ class _WalletsScreenState extends State<WalletsScreen> {
     final reserved = _walletReservedAmount(state, wallet.id);
     final available = wallet.balance - reserved;
     final accent = _parseColor(wallet.iconColor ?? '#165b47');
+    final hasMultipleWallets = state.wallets.length >= 2;
 
     return InkWell(
       onTap: () => _openWalletDetailsSheet(wallet),
       borderRadius: BorderRadius.circular(26),
       child: Ink(
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.92),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: accent.withValues(alpha: 0.18)),
+          border: Border.all(color: accent.withValues(alpha: 0.2)),
           boxShadow: [
             BoxShadow(
-              color: accent.withValues(alpha: 0.10),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
+              color: accent.withValues(alpha: 0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              _iconBubble(
-                iconName: wallet.icon ?? 'account_balance_wallet',
-                colorHex: wallet.iconColor ?? '#165b47',
-                size: 60,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // الهيدر: نوع البطاقة + الإجراءات السريعة
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'محفظة',
+                    style: TextStyle(
+                      color: accent,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
+                    if (hasMultipleWallets)
+                      IconButton(
+                        onPressed: _openWalletTransferDialog,
+                        icon: const Icon(Icons.swap_horiz_rounded),
+                        color: const Color(0xFF7A725F),
+                        padding: EdgeInsets.zero,
+                        constraints:
+                            const BoxConstraints(minWidth: 36, minHeight: 36),
+                        tooltip: 'تحويل بين المحافظ',
+                      ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      onPressed: () => _openWalletAllocateToJarDialog(wallet),
+                      icon: const Icon(Icons.add_circle_outline_rounded),
+                      color: const Color(0xFF7A725F),
+                      padding: EdgeInsets.zero,
+                      constraints:
+                          const BoxConstraints(minWidth: 36, minHeight: 36),
+                      tooltip: 'تخصيص مبلغ',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // الصندوق الداخلي (البيانات الرئيسية كما في الرسمة)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE4DCCF), width: 1.5),
+              ),
+              child: Row(
+                children: [
+                  _iconBubble(
+                    iconName: wallet.icon ?? 'account_balance_wallet',
+                    colorHex: wallet.iconColor ?? '#165b47',
+                    size: 52,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
                       wallet.name,
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    _pillLabel(
-                      reserved > 0
-                          ? 'المحجوز للحصالات ${reserved.toStringAsFixed(2)}'
-                          : 'لا يوجد حجز على هذه المحفظة',
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _metricChip(
-                            label: 'الإجمالي',
-                            value: wallet.balance.toStringAsFixed(2),
-                          ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${wallet.balance.toStringAsFixed(0)} جنيه',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _metricChip(
-                            label: 'الصافي المتاح',
-                            value: available.toStringAsFixed(2),
-                            emphasize: true,
-                            valueColor: available < 0
-                                ? const Color(0xFFB3261E)
-                                : const Color(0xFF165B47),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: Color(0xFF7D7461),
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(width: 6),
-              const Icon(Icons.chevron_left_rounded),
-            ],
-          ),
+            ),
+            const SizedBox(height: 16),
+
+            // الفوتر (المزيد من التفاصيل + بيانات مساعدة)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'المزيد من التفاصيل',
+                  style: TextStyle(
+                    color: accent,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+                Text(
+                  reserved > 0
+                      ? 'محجوز: ${reserved.toStringAsFixed(2)} جنيه'
+                      : 'متاح: ${available.toStringAsFixed(2)} جنيه',
+                  style: const TextStyle(
+                    color: Color(0xFF7D7461),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -170,80 +241,151 @@ class _WalletsScreenState extends State<WalletsScreen> {
   Widget _jarCard(AppStateEntity state, LinkedWalletEntity jar) {
     final accent = _parseColor(jar.iconColor);
     final distribution = _jarDistribution(state, jar.id);
-    final sourceCount = distribution.length;
 
     return InkWell(
       onTap: () => _openJarDetailsSheet(jar),
       borderRadius: BorderRadius.circular(26),
       child: Ink(
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: const Color(0xFFFFFCF4),
           borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: accent.withValues(alpha: 0.18)),
+          border: Border.all(color: accent.withValues(alpha: 0.2)),
           boxShadow: [
             BoxShadow(
-              color: accent.withValues(alpha: 0.08),
-              blurRadius: 18,
-              offset: const Offset(0, 10),
+              color: accent.withValues(alpha: 0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              _iconBubble(
-                iconName: jar.icon,
-                colorHex: jar.iconColor,
-                size: 60,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // الهيدر
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'حصالة',
+                    style: TextStyle(
+                      color: accent,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
+                    if (distribution.isNotEmpty)
+                      IconButton(
+                        onPressed: () =>
+                            _openInternalTransferDialog(sourceJar: jar),
+                        icon: const Icon(Icons.swap_horiz_rounded),
+                        color: const Color(0xFF7A725F),
+                        padding: EdgeInsets.zero,
+                        constraints:
+                            const BoxConstraints(minWidth: 36, minHeight: 36),
+                        tooltip: 'تحويل داخلي',
+                      ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      onPressed: () => _openJarAdjustmentDialog(
+                        jar: jar,
+                        mode: _JarAdjustmentMode.allocate,
+                      ),
+                      icon: const Icon(Icons.add_circle_outline_rounded),
+                      color: const Color(0xFF7A725F),
+                      padding: EdgeInsets.zero,
+                      constraints:
+                          const BoxConstraints(minWidth: 36, minHeight: 36),
+                      tooltip: 'تخصيص للحصالة',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // الصندوق الداخلي
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE4DCCF), width: 1.5),
+              ),
+              child: Row(
+                children: [
+                  _iconBubble(
+                    iconName: jar.icon,
+                    colorHex: jar.iconColor,
+                    size: 52,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
                       jar.name,
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    _pillLabel(
-                      sourceCount == 0
-                          ? 'لا يوجد تخصيص فعلي بعد'
-                          : sourceCount == 1
-                              ? 'مرتبطة بمحفظة واحدة'
-                              : 'مرتبطة بـ $sourceCount محافظ',
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _metricChip(
-                            label: 'إجمالي الحصالة',
-                            value: jar.balance.toStringAsFixed(2),
-                            emphasize: true,
-                            valueColor: accent,
-                          ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${jar.balance.toStringAsFixed(0)} جنيه',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _metricChip(
-                            label: 'المخصص الشهري',
-                            value: jar.monthlyAmount.toStringAsFixed(2),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: Color(0xFF7D7461),
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(width: 6),
-              const Icon(Icons.chevron_left_rounded),
-            ],
-          ),
+            ),
+            const SizedBox(height: 16),
+
+            // الفوتر
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'المزيد من التفاصيل',
+                  style: TextStyle(
+                    color: accent,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+                Text(
+                  'مخصص شهرياً: ${jar.monthlyAmount.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    color: Color(0xFF7D7461),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

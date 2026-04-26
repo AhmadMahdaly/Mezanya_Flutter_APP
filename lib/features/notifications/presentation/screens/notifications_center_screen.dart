@@ -89,9 +89,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         sourceTransactions,
         month,
       );
-      if (pendingMeta == null) {
-        continue;
-      }
+      if (pendingMeta == null) continue;
 
       cards.add(
         PendingNotificationCard(
@@ -101,6 +99,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           title: source.name,
           subtitle: pendingMeta.status,
           amount: source.amount,
+          badge: pendingMeta.isDueOrLate ? 'مستحق الآن' : 'تنبيه مبكر',
+          meta: _walletName(source.targetWalletId),
+          icon: Icons.south_west_rounded,
           actions: [
             if (pendingMeta.canEarly)
               PendingNotificationAction(
@@ -141,22 +142,29 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           title: debt.name,
           subtitle: pendingMeta.status,
           amount: remaining,
+          badge: 'دين أو اشتراك',
+          meta: _walletName(recurring?.walletId ?? ''),
+          icon: Icons.credit_card_rounded,
           actions: [
             PendingNotificationAction(
               label: 'نزول',
-              onPressed: () => _recordDebt(
-                debt,
-                recurring!,
-                pendingMeta.occurrence,
-              ),
+              onPressed: recurring == null
+                  ? () {}
+                  : () => _recordDebt(
+                        debt,
+                        recurring,
+                        pendingMeta.occurrence,
+                      ),
             ),
             PendingNotificationAction(
               label: 'تأجيل',
               filled: false,
-              onPressed: () => _snoozeRecurringExpense(
-                recurring!,
-                pendingMeta.occurrence,
-              ),
+              onPressed: recurring == null
+                  ? () {}
+                  : () => _snoozeRecurringExpense(
+                        recurring,
+                        pendingMeta.occurrence,
+                      ),
             ),
           ],
         ),
@@ -168,28 +176,30 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   List<NotificationEntity> _historyNotifications(AppStateEntity state) {
     final items = state.notifications.where((item) {
-      if (item.relatedLogId == null) {
-        return false;
-      }
+      if (item.relatedLogId == null) return false;
       final text = '${item.title} ${item.message}';
       return text.contains('دخل') ||
           text.contains('دين') ||
+          text.contains('اشتراك') ||
           text.contains('تأجيل') ||
-          text.contains('التراجع');
+          text.contains('تراجع');
     }).toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return items;
   }
 
   Widget _buildHistoryTile(AppStateEntity state, NotificationEntity item) {
-    final relatedLog = state.logs.where((log) => log.id == item.relatedLogId).toList();
+    final relatedLog =
+        state.logs.where((log) => log.id == item.relatedLogId).toList();
     final log = relatedLog.isEmpty ? null : relatedLog.first;
 
-    return NotificationHistoryTile(
-      title: item.title,
-      subtitle: item.message,
-      trailing: DateFormat('d/M HH:mm', 'ar').format(item.createdAt),
-      onTap: () => _openHistorySheet(item, log),
+    return NotificationHistoryCard(
+      title: _historyTitle(item),
+      timeLabel: DateFormat('d/M HH:mm', 'ar').format(item.createdAt),
+      amountLabel: _historyAmount(item, log),
+      accent: _historyAccent(item),
+      icon: _historyIcon(item),
+      onOpen: () => _openHistorySheet(item, log),
     );
   }
 
@@ -208,18 +218,55 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             Text(item.title, style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(item.message),
-            const SizedBox(height: 8),
-            Text(
-              'الوقت: ${DateFormat('d/M/yyyy - HH:mm', 'ar').format(item.createdAt)}',
+            const SizedBox(height: 16),
+            ..._detailsRows(item, log).map(
+              (row) => Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHighest
+                      .withValues(alpha: 0.24),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 96,
+                      child: Text(
+                        row.key,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        row.value,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
             if (log != null) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: () async {
                   await widget.cubit.toggleLogRevert(log.id);
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                  }
+                  if (context.mounted) Navigator.pop(context);
                 },
                 icon: Icon(
                   log.isReverted ? Icons.redo_rounded : Icons.undo_rounded,
@@ -271,9 +318,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         !today.isBefore(reminderDate) &&
         today.isBefore(dueDate);
     final isDueOrLate = !today.isBefore(dueDate);
-    if (!canEarly && !isDueOrLate) {
-      return null;
-    }
+    if (!canEarly && !isDueOrLate) return null;
 
     final dateLabel = '${dueDate.day}/${dueDate.month}';
     final timeLabel = recurring?.scheduledTime?.isNotEmpty == true
@@ -284,8 +329,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       canEarly: canEarly,
       isDueOrLate: isDueOrLate,
       status: isDueOrLate
-          ? 'مستحق الآن • $dateLabel${timeLabel == null ? '' : ' • $timeLabel'}'
-          : 'بكر • $dateLabel${timeLabel == null ? '' : ' • $timeLabel'}',
+          ? 'مستحق الآن · $dateLabel${timeLabel == null ? '' : ' · $timeLabel'}'
+          : 'بكر · $dateLabel${timeLabel == null ? '' : ' · $timeLabel'}',
     );
   }
 
@@ -313,32 +358,29 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
 
     final occurrence = _nextRecurringOccurrence(recurring, DateTime.now());
-    if (occurrence == null) {
-      return null;
-    }
+    if (occurrence == null) return null;
 
-    final snoozedUntil = recurring.snoozedUntil == null ||
-            recurring.snoozedUntil!.isEmpty
-        ? null
-        : DateTime.tryParse(recurring.snoozedUntil!);
+    final snoozedUntil =
+        recurring.snoozedUntil == null || recurring.snoozedUntil!.isEmpty
+            ? null
+            : DateTime.tryParse(recurring.snoozedUntil!);
     final reminderAt = _notificationMoment(recurring, occurrence);
     final now = DateTime.now();
     if (snoozedUntil != null && now.isBefore(snoozedUntil)) {
       return _ExpensePendingMeta(
         pending: false,
-        status: 'مؤجل حتى ${DateFormat('d/M HH:mm', 'ar').format(snoozedUntil)}',
+        status:
+            'مؤجل حتى ${DateFormat('d/M HH:mm', 'ar').format(snoozedUntil)}',
         occurrence: occurrence,
       );
     }
-    if (now.isBefore(reminderAt)) {
-      return null;
-    }
+    if (now.isBefore(reminderAt)) return null;
 
     return _ExpensePendingMeta(
       pending: true,
       status: now.isBefore(occurrence)
-          ? 'مستحق قريبًا • ${DateFormat('d/M HH:mm', 'ar').format(occurrence)}'
-          : 'مستحق الآن • ${DateFormat('d/M HH:mm', 'ar').format(occurrence)}',
+          ? 'مستحق قريبًا · ${DateFormat('d/M HH:mm', 'ar').format(occurrence)}'
+          : 'مستحق الآن · ${DateFormat('d/M HH:mm', 'ar').format(occurrence)}',
       occurrence: occurrence,
     );
   }
@@ -364,18 +406,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   DateTime? _parseRecurringTime(String? value) {
-    if (value == null || value.isEmpty || !value.contains(':')) {
-      return null;
-    }
+    if (value == null || value.isEmpty || !value.contains(':')) return null;
     final parts = value.split(':');
-    if (parts.length != 2) {
-      return null;
-    }
+    if (parts.length != 2) return null;
     final hour = int.tryParse(parts[0]);
     final minute = int.tryParse(parts[1]);
-    if (hour == null || minute == null) {
-      return null;
-    }
+    if (hour == null || minute == null) return null;
     final now = DateTime.now();
     return DateTime(now.year, now.month, now.day, hour, minute);
   }
@@ -384,22 +420,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     RecurringTransactionEntity recurring,
     DateTime now,
   ) {
-    final time = _parseRecurringTime(recurring.scheduledTime) ?? now;
+    final parsedTime = _parseRecurringTime(recurring.scheduledTime);
+    final hour = parsedTime?.hour ?? now.hour;
+    final minute = parsedTime?.minute ?? now.minute;
+
     DateTime atDate(DateTime day) =>
-        DateTime(day.year, day.month, day.day, time.hour, time.minute);
+        DateTime(day.year, day.month, day.day, hour, minute);
 
     if (recurring.recurrencePattern == 'daily') {
       final today = atDate(now);
       return today.isAfter(now) ? today : today.add(const Duration(days: 1));
     }
+
     if (recurring.weekdays.isNotEmpty) {
       for (var offset = 0; offset <= 21; offset++) {
         final day = now.add(Duration(days: offset));
         if (recurring.weekdays.contains(day.weekday)) {
           final candidate = atDate(day);
-          if (candidate.isAfter(now)) {
-            return candidate;
-          }
+          if (candidate.isAfter(now)) return candidate;
         }
       }
     }
@@ -408,22 +446,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       now.year,
       now.month,
       recurring.dayOfMonth.clamp(1, 28),
-      time.hour,
-      time.minute,
+      hour,
+      minute,
     );
-    if (candidate.isAfter(now)) {
-      return candidate;
-    }
+    if (candidate.isAfter(now)) return candidate;
     return DateTime(
       now.year,
       now.month + 1,
       recurring.dayOfMonth.clamp(1, 28),
-      time.hour,
-      time.minute,
+      hour,
+      minute,
     );
   }
 
-  Future<void> _recordIncome(IncomeSourceEntity source, {bool early = false}) async {
+  Future<void> _recordIncome(
+    IncomeSourceEntity source, {
+    bool early = false,
+  }) async {
     double amount = source.amount;
     if (source.isVariable || amount <= 0) {
       final amountController = TextEditingController();
@@ -448,13 +487,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ],
         ),
       );
-      if (ok != true) {
-        return;
-      }
+      if (ok != true) return;
       amount = double.tryParse(amountController.text.trim()) ?? 0;
-      if (amount <= 0) {
-        return;
-      }
+      if (amount <= 0) return;
     }
 
     final now = DateTime.now();
@@ -471,7 +506,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Future<void> _postponeIncome(IncomeSourceEntity source, DateTime month) async {
+  Future<void> _postponeIncome(
+    IncomeSourceEntity source,
+    DateTime month,
+  ) async {
     final dueDate = _incomeDueDateForMonth(source, month);
     final picked = await showDatePicker(
       context: context,
@@ -479,9 +517,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       firstDate: dueDate.add(const Duration(days: 1)),
       lastDate: DateTime(month.year, month.month + 1, 28),
     );
-    if (picked == null) {
-      return;
-    }
+    if (picked == null) return;
 
     final setup = widget.cubit.state.budgetSetup;
     final incomes = setup.incomeSources
@@ -500,7 +536,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               : income,
         )
         .toList();
-    await widget.cubit.updateBudgetSetup(setup.copyWith(incomeSources: incomes));
+    await widget.cubit.updateBudgetSetup(
+      setup.copyWith(incomeSources: incomes),
+    );
   }
 
   Future<void> _recordDebt(
@@ -534,6 +572,73 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     await widget.cubit.updateRecurringTransaction(
       recurring.copyWith(snoozedUntil: nextSnooze.toIso8601String()),
     );
+  }
+
+  String _walletName(String walletId) {
+    if (walletId.isEmpty) return 'بدون محفظة';
+    final wallets =
+        widget.cubit.state.wallets.where((wallet) => wallet.id == walletId);
+    if (wallets.isEmpty) return 'بدون محفظة';
+    return wallets.first.name;
+  }
+
+  String _historyTitle(NotificationEntity item) {
+    return item.title.trim().isEmpty ? 'إشعار' : item.title.trim();
+  }
+
+  String _historyAmount(NotificationEntity item, LogEntryEntity? log) {
+    final source = '${item.title} ${item.message} ${log?.details ?? ''}';
+    final match = RegExp(r'(\d+(?:\.\d+)?)').firstMatch(source);
+    return match?.group(1) ?? 'بدون قيمة';
+  }
+
+  List<MapEntry<String, String>> _detailsRows(
+    NotificationEntity item,
+    LogEntryEntity? log,
+  ) {
+    final rows = <MapEntry<String, String>>[
+      MapEntry('العنوان', item.title),
+      MapEntry('القيمة', _historyAmount(item, log)),
+      MapEntry(
+        'الوقت',
+        DateFormat('d/M/yyyy - HH:mm', 'ar').format(item.createdAt),
+      ),
+      MapEntry('الرسالة', item.message),
+    ];
+    if (log != null) {
+      rows.add(MapEntry('الإجراء', log.action));
+      rows.add(MapEntry('نوع العنصر', log.entityType));
+      rows.add(MapEntry('الحالة', log.isReverted ? 'تم التراجع' : 'نشط'));
+    }
+    return rows;
+  }
+
+  Color _historyAccent(NotificationEntity item) {
+    final text = '${item.title} ${item.message}';
+    if (text.contains('دخل')) {
+      return const Color(0xFF0F9D7A);
+    }
+    if (text.contains('تأجيل')) {
+      return const Color(0xFF9B6B2F);
+    }
+    if (text.contains('دين') || text.contains('اشتراك')) {
+      return const Color(0xFFC65D2E);
+    }
+    return const Color(0xFF2F6F5E);
+  }
+
+  IconData _historyIcon(NotificationEntity item) {
+    final text = '${item.title} ${item.message}';
+    if (text.contains('دخل')) {
+      return Icons.south_west_rounded;
+    }
+    if (text.contains('دين') || text.contains('اشتراك')) {
+      return Icons.credit_card_rounded;
+    }
+    if (text.contains('تأجيل')) {
+      return Icons.schedule_rounded;
+    }
+    return Icons.notifications_active_rounded;
   }
 }
 

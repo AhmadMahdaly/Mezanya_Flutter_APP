@@ -31,7 +31,6 @@ class JarEditorScreen extends StatefulWidget {
 
 class _JarEditorScreenState extends State<JarEditorScreen> {
   late final TextEditingController _nameController;
-  late final TextEditingController _balanceController;
   late final TextEditingController _dayController;
   late String _selectedIcon;
   late String _selectedColor;
@@ -44,9 +43,6 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.current?.name ?? '');
-    _balanceController = TextEditingController(
-      text: (widget.current?.balance ?? 0).toStringAsFixed(0),
-    );
     _dayController = TextEditingController(
       text: (widget.current?.executionDay ?? 1).toString(),
     );
@@ -70,7 +66,6 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _balanceController.dispose();
     _dayController.dispose();
     super.dispose();
   }
@@ -175,14 +170,13 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
             (item) => item.incomeSourceId.isNotEmpty && item.plannedAmount > 0)
         .toList();
     final day = (int.tryParse(_dayController.text.trim()) ?? 1).clamp(1, 28);
-    final balance = double.tryParse(_balanceController.text.trim()) ?? 0;
     final primary =
         cleanedFunding.isNotEmpty ? cleanedFunding.first.incomeSourceId : '';
 
     final entity = LinkedWalletEntity(
       id: widget.current?.id ?? widget.idFactory('linked'),
       name: name,
-      balance: balance,
+      balance: widget.current?.balance ?? 0,
       monthlyAmount: cleanedFunding.fold<double>(
         0,
         (sum, item) => sum + item.plannedAmount,
@@ -304,7 +298,7 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'الرصيد الحالي ${_displayAmount(_balanceController.text)}',
+                        'الرصيد الحالي ${(widget.current?.balance ?? 0).toStringAsFixed(2)}',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: Colors.white.withValues(alpha: 0.92),
                           fontWeight: FontWeight.w600,
@@ -327,7 +321,8 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
           const SizedBox(height: 18),
           _JarEditorSection(
             title: 'البيانات الأساسية',
-            subtitle: 'حدد اسم الحصالة ورصيدها الحالي والأيقونة التي تميزها.',
+            subtitle:
+                'حدد اسم الحصالة وشكلها. الرصيد الفعلي يأتي من التخصيصات والتحويلات وليس من كتابة رقم يدوي.',
             child: Column(
               children: [
                 TextField(
@@ -339,15 +334,43 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
                   onChanged: (_) => setState(() {}),
                 ),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: _balanceController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'الرصيد الحالي',
-                    hintText: 'اكتب الرصيد الموجود الآن داخل الحصالة',
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.30,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.55),
+                    ),
                   ),
-                  onChanged: (_) => setState(() {}),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'الرصيد الحالي',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        (widget.current?.balance ?? 0).toStringAsFixed(2),
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'يتغير هذا الرقم من التخصيصات الفعلية والتحويل الداخلي، وليس من هذه الشاشة.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 12),
                 InkWell(
@@ -701,9 +724,4 @@ Color _colorFromHex(String value) {
   final normalized = hex.length == 6 ? 'FF$hex' : hex;
   final intColor = int.tryParse(normalized, radix: 16) ?? 0xFF0F766E;
   return Color(intColor);
-}
-
-String _displayAmount(String raw) {
-  final value = double.tryParse(raw.trim()) ?? 0;
-  return value.toStringAsFixed(2);
 }

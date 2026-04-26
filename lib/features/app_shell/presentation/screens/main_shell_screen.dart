@@ -81,6 +81,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
     final pendingNotifications = _pendingNotificationCount(widget.cubit.state);
 
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: _showsAppBar
           ? MainShellAppBar(
               todayLabelFuture: _todayLabelFuture,
@@ -122,9 +123,10 @@ class _MainShellScreenState extends State<MainShellScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      backgroundColor: const Color(0xffeee5d8),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      barrierColor: const Color(0xFF2D2A22).withValues(alpha: 0.28),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (context) => Padding(
         padding: EdgeInsets.only(

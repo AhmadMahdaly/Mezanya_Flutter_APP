@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -233,7 +233,45 @@ class AppCubit extends Cubit<AppStateEntity> {
     var wallets = List<WalletEntity>.from(state.wallets);
     var linked = List<LinkedWalletEntity>.from(state.budgetSetup.linkedWallets);
 
-    if (transaction.type == 'transfer') {
+    if (transaction.transferType == 'allocation-to-jar') {
+      linked = linked.map((j) {
+        if (transaction.toWalletId != null && j.id == transaction.toWalletId) {
+          return LinkedWalletEntity(
+            id: j.id,
+            name: j.name,
+            balance: j.balance - transaction.amount,
+            monthlyAmount: j.monthlyAmount,
+            executionDay: j.executionDay,
+            fundingSource: j.fundingSource,
+            funding: j.funding,
+            icon: j.icon,
+            iconColor: j.iconColor,
+            automationType: j.automationType,
+            categories: j.categories,
+          );
+        }
+        return j;
+      }).toList();
+    } else if (transaction.transferType == 'jar-to-allocation') {
+      linked = linked.map((j) {
+        if (transaction.walletId != null && j.id == transaction.walletId) {
+          return LinkedWalletEntity(
+            id: j.id,
+            name: j.name,
+            balance: j.balance + transaction.amount,
+            monthlyAmount: j.monthlyAmount,
+            executionDay: j.executionDay,
+            fundingSource: j.fundingSource,
+            funding: j.funding,
+            icon: j.icon,
+            iconColor: j.iconColor,
+            automationType: j.automationType,
+            categories: j.categories,
+          );
+        }
+        return j;
+      }).toList();
+    } else if (transaction.type == 'transfer') {
       wallets = wallets.map((w) {
         if (transaction.fromWalletId != null && w.id == transaction.fromWalletId) {
           return w.copyWith(balance: w.balance + transaction.amount);
@@ -286,7 +324,8 @@ class AppCubit extends Cubit<AppStateEntity> {
       action: 'delete',
       entityType: 'transaction',
       entityId: transactionId,
-      details: 'تم حذف معاملة: ${transaction.notes ?? transaction.type} (${transaction.amount.toStringAsFixed(2)})',
+      details:
+          'تم حذف معاملة ${_transactionTypeLabel(transaction.type)} بقيمة ${transaction.amount.toStringAsFixed(2)}',
       apply: () async => next,
     );
   }
@@ -319,7 +358,7 @@ class AppCubit extends Cubit<AppStateEntity> {
       action: 'edit',
       entityType: 'wallet',
       entityId: id,
-      details: 'تم تعديل بيانات محفظة',
+      details: 'تم تعديل بيانات المحفظة',
       apply: () async => next,
     );
   }
@@ -526,6 +565,7 @@ class AppCubit extends Cubit<AppStateEntity> {
     List<String>? categoryIds,
     bool isVariableIncome = false,
     bool isDebtOrSubscription = false,
+    String? expensePlanKind,
     double? debtPrincipalTotal,
     String? notes,
   }) async {
@@ -552,6 +592,7 @@ class AppCubit extends Cubit<AppStateEntity> {
       categoryIds: categoryIds ?? const [],
       isVariableIncome: isVariableIncome,
       isDebtOrSubscription: isDebtOrSubscription,
+      expensePlanKind: expensePlanKind,
       debtPrincipalTotal: debtPrincipalTotal,
       notes: notes,
     );
@@ -562,7 +603,7 @@ class AppCubit extends Cubit<AppStateEntity> {
       action: 'add',
       entityType: 'recurring-transaction',
       entityId: recurring.id,
-      details: 'تمت إضافة معاملة متكررة: $name',
+      details: _recurringTransactionDetails('إضافة معاملة متكررة', recurring),
       apply: () async => next,
     );
   }
@@ -577,12 +618,16 @@ class AppCubit extends Cubit<AppStateEntity> {
       action: 'edit',
       entityType: 'recurring-transaction',
       entityId: recurring.id,
-      details: 'تم تعديل معاملة متكررة',
+      details: _recurringTransactionDetails('تعديل معاملة متكررة', recurring),
       apply: () async => next,
     );
   }
 
   Future<void> deleteRecurringTransaction(String id) async {
+    final target = state.recurringTransactions
+        .where((item) => item.id == id)
+        .toList();
+    final deleted = target.isEmpty ? null : target.first;
     final next = state.copyWith(
       recurringTransactions:
           state.recurringTransactions.where((item) => item.id != id).toList(),
@@ -591,9 +636,67 @@ class AppCubit extends Cubit<AppStateEntity> {
       action: 'delete',
       entityType: 'recurring-transaction',
       entityId: id,
-      details: 'تم حذف معاملة متكررة',
+      details: deleted == null
+          ? 'تم حذف معاملة متكررة'
+          : _recurringTransactionDetails('حذف معاملة متكررة', deleted),
       apply: () async => next,
     );
+  }
+
+  String _transactionTypeLabel(String type) {
+    return switch (type) {
+      'income' => 'دخل',
+      'expense' => 'مصروف',
+      'transfer' => 'تحويل',
+      _ => type,
+    };
+  }
+
+  String _executionTypeLabel(String type) {
+    return switch (type) {
+      'auto' => 'تلقائي',
+      'confirm' => 'يحتاج تأكيد',
+      'manual' => 'يدوي',
+      _ => type,
+    };
+  }
+
+  String _budgetScopeLabel(String scope) {
+    return scope == 'within-budget' ? 'داخل الميزانية' : 'خارج الميزانية';
+  }
+
+  String _recurrenceLabel(String pattern) {
+    return switch (pattern) {
+      'daily' => 'يومي',
+      'weekly' => 'أسبوعي',
+      'biweekly' => 'كل أسبوعين',
+      'every_3_weeks' => 'كل 3 أسابيع',
+      'monthly' => 'شهري',
+      'every_2_months' => 'كل شهرين',
+      'every_3_months' => 'كل 3 شهور',
+      'every_6_months' => 'كل 6 شهور',
+      'yearly' => 'سنوي',
+      'manual-variable' => 'يدوي متغير',
+      _ => pattern,
+    };
+  }
+
+  String _recurringTransactionDetails(
+    String action,
+    RecurringTransactionEntity recurring,
+  ) {
+    final type = _transactionTypeLabel(recurring.type);
+    final amount = recurring.isVariableIncome
+        ? 'دخل متغير'
+        : recurring.amount.toStringAsFixed(2);
+    final debtLabel = recurring.isDebtOrSubscription
+        ? recurring.expensePlanKind == 'installment'
+            ? ' · تقسيط'
+            : recurring.expensePlanKind == 'subscription'
+                ? ' · اشتراك'
+                : ' · دين أو اشتراك'
+        : '';
+    return '$action: ${recurring.name} · النوع: $type · القيمة: $amount · التكرار: ${_recurrenceLabel(recurring.recurrencePattern)} · التنفيذ: ${_executionTypeLabel(recurring.executionType)} · ${_budgetScopeLabel(recurring.budgetScope)}$debtLabel';
   }
 
   Future<void> ensureDefaultSavingsJar() async {
@@ -606,7 +709,7 @@ class AppCubit extends Cubit<AppStateEntity> {
         : '';
     final defaultJar = LinkedWalletEntity(
       id: 'linked-savings-default',
-      name: 'حصالة التوفير',
+      name: 'ط­طµط§ظ„ط© ط§ظ„طھظˆظپظٹط±',
       balance: 0,
       monthlyAmount: 0,
       executionDay: 1,
@@ -671,6 +774,8 @@ class AppCubit extends Cubit<AppStateEntity> {
     required double targetAmount,
     required DateTime startDate,
     required DateTime endDate,
+    String icon = 'savings',
+    String iconColor = '#2f6f5e',
     String? notes,
   }) async {
     final goal = GoalEntity(
@@ -679,6 +784,8 @@ class AppCubit extends Cubit<AppStateEntity> {
       targetAmount: targetAmount,
       startDate: startDate,
       endDate: endDate,
+      icon: icon,
+      iconColor: iconColor,
       notes: notes,
     );
     final next = state.copyWith(goals: [...state.goals, goal]);
@@ -786,3 +893,5 @@ class AppCubit extends Cubit<AppStateEntity> {
     emit(next);
   }
 }
+
+

@@ -608,7 +608,7 @@ class _AppIconPickerDialogState extends State<AppIconPickerDialog> {
   Widget build(BuildContext context) {
     final icons = AppIconPickerDialog.iconsForCategory(_selectedCategoryId);
     final theme = Theme.of(context);
-    final colorHex = _colorToHex(_selectedColor);
+    // final colorHex = _colorToHex(_selectedColor);
     const contentHeight = 320.0;
     final dialogWidth = math.min(
       720.0,
@@ -872,12 +872,10 @@ class _AppIconPickerDialogState extends State<AppIconPickerDialog> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Expanded(
-                      child: Center(
-                        child: _ColorWheel(
-                          color: _selectedColor,
-                          onChanged: (color) =>
-                              setState(() => _selectedColor = color),
-                        ),
+                      child: _ColorBoxPicker(
+                        color: _selectedColor,
+                        onChanged: (color) =>
+                            setState(() => _selectedColor = color),
                       ),
                     ),
                   ],
@@ -1051,27 +1049,27 @@ class _AppIconPickerDialogState extends State<AppIconPickerDialog> {
   }
 }
 
-class _ColorWheel extends StatelessWidget {
-  const _ColorWheel({
-    required this.color,
-    required this.onChanged,
-  });
+// class _ColorWheel extends StatelessWidget {
+//   const _ColorWheel({
+//     required this.color,
+//     required this.onChanged,
+//   });
 
-  final Color color;
-  final ValueChanged<Color> onChanged;
+//   final Color color;
+//   final ValueChanged<Color> onChanged;
 
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 190,
-      height: 190,
-      child: _ColorWheelGesture(
-        color: color,
-        onChanged: onChanged,
-      ),
-    );
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     return SizedBox(
+//       width: 190,
+//       height: 190,
+//       child: _ColorWheelGesture(
+//         color: color,
+//         onChanged: onChanged,
+//       ),
+//     );
+//   }
+// }
 
 class _ColorWheelGesture extends StatefulWidget {
   const _ColorWheelGesture({
@@ -1172,6 +1170,75 @@ class _WheelPainter extends CustomPainter {
         stops: [0, 1],
       ).createShader(rect);
     canvas.drawCircle(center, radius, radial);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _ColorBoxPicker extends StatelessWidget {
+  const _ColorBoxPicker({
+    required this.color,
+    required this.onChanged,
+  });
+
+  final Color color;
+  final ValueChanged<Color> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return GestureDetector(
+          onPanDown: (d) => _update(d.localPosition, constraints.biggest),
+          onPanUpdate: (d) => _update(d.localPosition, constraints.biggest),
+          child: CustomPaint(
+            size: Size.infinite,
+            painter: _ColorBoxPainter(),
+          ),
+        );
+      },
+    );
+  }
+
+  void _update(Offset pos, Size size) {
+    final x = (pos.dx / size.width).clamp(0.0, 1.0);
+    final y = (pos.dy / size.height).clamp(0.0, 1.0);
+
+    final hue = x * 360;
+    final saturation = 1.0;
+    final value = 1 - y;
+
+    final color = HSVColor.fromAHSV(1, hue, saturation, value).toColor();
+    onChanged(color);
+  }
+}
+
+class _ColorBoxPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+
+    // Gradient أفقي (Hue)
+    final hueGradient = LinearGradient(
+      colors: List.generate(
+        7,
+        (i) => HSVColor.fromAHSV(1, i * 60, 1, 1).toColor(),
+      ),
+    );
+
+    final paint = Paint()..shader = hueGradient.createShader(rect);
+    canvas.drawRect(rect, paint);
+
+    // Gradient رأسي (Brightness)
+    final shade = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Colors.transparent, Colors.black],
+      ).createShader(rect);
+
+    canvas.drawRect(rect, shade);
   }
 
   @override

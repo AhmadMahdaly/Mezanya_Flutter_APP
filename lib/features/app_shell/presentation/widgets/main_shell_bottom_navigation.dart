@@ -34,11 +34,11 @@ class MainShellBottomNavigation extends StatelessWidget {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
+                Theme.of(context).colorScheme.surface.withValues(alpha: 0.96),
                 Theme.of(context)
                     .colorScheme
                     .secondaryContainer
-                    .withValues(alpha: 0.72),
+                    .withValues(alpha: 0.54),
               ],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -51,7 +51,7 @@ class MainShellBottomNavigation extends StatelessWidget {
               BoxShadow(
                 blurRadius: 40,
                 offset: Offset(0, 12),
-                color: Color(0x1431332F),
+                color: Color(0x1F5D4B32),
               ),
             ],
           ),

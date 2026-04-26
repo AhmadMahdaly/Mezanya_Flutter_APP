@@ -7,6 +7,24 @@ import '../../../transactions/presentation/screens/recurring_transaction_compose
 import '../../../wallets/presentation/screens/jar_editor_screen.dart';
 import '../../domain/entities/budget_setup_entity.dart';
 
+Future<AllocationEditorResult?> openAllocationEditorScreen(
+  BuildContext context, {
+  AllocationEntity? current,
+  required List<IncomeSourceEntity> incomeSources,
+  required String Function(String prefix) idFactory,
+}) {
+  return Navigator.of(context).push<AllocationEditorResult>(
+    MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) => _AllocationEditorScreen(
+        current: current,
+        incomeSources: incomeSources,
+        idFactory: idFactory,
+      ),
+    ),
+  );
+}
+
 class BudgetSetupScreen extends StatefulWidget {
   const BudgetSetupScreen({
     super.key,
@@ -25,17 +43,17 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
   late BudgetSetupEntity _budget;
   late DateTime _displayMonth;
   bool _futureMonthNoticeShown = false;
-  static const String _defaultSavingsJarId = 'linked-savings-default';
+  // static const String _defaultSavingsJarId = 'linked-savings-default';
 
-  static const List<String> _weekdayNames = <String>[
-    'الإثنين',
-    'الثلاثاء',
-    'الأربعاء',
-    'الخميس',
-    'الجمعة',
-    'السبت',
-    'الأحد',
-  ];
+  // static const List<String> _weekdayNames = <String>[
+  //   'الإثنين',
+  //   'الثلاثاء',
+  //   'الأربعاء',
+  //   'الخميس',
+  //   'الجمعة',
+  //   'السبت',
+  //   'الأحد',
+  // ];
 
   @override
   void initState() {
@@ -418,15 +436,11 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
 
   Future<void> _showAllocationDialog({AllocationEntity? current}) async {
     if (_budget.incomeSources.isEmpty) return;
-    final result = await Navigator.of(context).push<AllocationEditorResult>(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => _AllocationEditorScreen(
-          current: current,
-          incomeSources: _budget.incomeSources,
-          idFactory: _id,
-        ),
-      ),
+    final result = await openAllocationEditorScreen(
+      context,
+      current: current,
+      incomeSources: _budget.incomeSources,
+      idFactory: _id,
     );
     if (result == null) {
       return;
@@ -1619,46 +1633,82 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              _iconBadge(
+                iconName: iconName,
+                colorHex: iconColorHex,
+                size: 42,
+              ),
+              const SizedBox(width: 12),
               Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    _iconBadge(
-                      iconName: iconName,
-                      colorHex: iconColorHex,
-                      size: 42,
+                    Text(
+                      income.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        height: 1.2,
+                      ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            income.name,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w900,
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: FittedBox(
+                            alignment: AlignmentDirectional.centerStart,
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              income.isVariable
+                                  ? 'متغير'
+                                  : income.amount.toStringAsFixed(2),
+                              maxLines: 1,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w900,
+                                color: const Color(0xFF165B47),
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            meta,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontWeight: FontWeight.w700,
+                        ),
+                        const SizedBox(width: 10),
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: tint.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              income.isVariable
+                                  ? 'غير ثابت'
+                                  : 'يوم ${income.date}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
-                        ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      meta,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        height: 1.25,
                       ),
                     ),
                   ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                income.isVariable ? 'متغير' : income.amount.toStringAsFixed(2),
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w900,
                 ),
               ),
             ],
@@ -2177,104 +2227,104 @@ class _BudgetSetupScreenState extends State<BudgetSetupScreen> {
     return fallback.first;
   }
 
-  DateTime? _parseClockTime(String? value) {
-    if (value == null || value.isEmpty || !value.contains(':')) {
-      return null;
-    }
-    final parts = value.split(':');
-    if (parts.length != 2) {
-      return null;
-    }
-    final hour = int.tryParse(parts[0]);
-    final minute = int.tryParse(parts[1]);
-    if (hour == null || minute == null) {
-      return null;
-    }
-    final now = DateTime.now();
-    return DateTime(now.year, now.month, now.day, hour, minute);
-  }
+  // DateTime? _parseClockTime(String? value) {
+  //   if (value == null || value.isEmpty || !value.contains(':')) {
+  //     return null;
+  //   }
+  //   final parts = value.split(':');
+  //   if (parts.length != 2) {
+  //     return null;
+  //   }
+  //   final hour = int.tryParse(parts[0]);
+  //   final minute = int.tryParse(parts[1]);
+  //   if (hour == null || minute == null) {
+  //     return null;
+  //   }
+  //   final now = DateTime.now();
+  //   return DateTime(now.year, now.month, now.day, hour, minute);
+  // }
 
-  DateTime? _nextOccurrence(
-      RecurringTransactionEntity recurring, DateTime now) {
-    final time = _parseClockTime(recurring.scheduledTime) ?? now;
-    DateTime atDate(DateTime day) =>
-        DateTime(day.year, day.month, day.day, time.hour, time.minute);
+  // DateTime? _nextOccurrence(
+  //     RecurringTransactionEntity recurring, DateTime now) {
+  //   final time = _parseClockTime(recurring.scheduledTime) ?? now;
+  //   DateTime atDate(DateTime day) =>
+  //       DateTime(day.year, day.month, day.day, time.hour, time.minute);
 
-    if (recurring.recurrencePattern == 'manual-variable') {
-      return null;
-    }
-    if (recurring.recurrencePattern == 'daily') {
-      final today = atDate(now);
-      return today.isAfter(now) ? today : today.add(const Duration(days: 1));
-    }
-    if (recurring.weekdays.isNotEmpty) {
-      for (var offset = 0; offset <= 21; offset++) {
-        final day = now.add(Duration(days: offset));
-        if (recurring.weekdays.contains(day.weekday)) {
-          final candidate = atDate(day);
-          if (candidate.isAfter(now)) {
-            return candidate;
-          }
-        }
-      }
-    }
-    if (recurring.recurrencePattern == 'monthly' ||
-        recurring.recurrencePattern == 'every_2_months' ||
-        recurring.recurrencePattern == 'every_3_months' ||
-        recurring.recurrencePattern == 'every_6_months') {
-      final interval = switch (recurring.recurrencePattern) {
-        'every_2_months' => 2,
-        'every_3_months' => 3,
-        'every_6_months' => 6,
-        _ => 1,
-      };
-      for (var step = 0; step < 12; step++) {
-        final monthDate = DateTime(now.year, now.month + (step * interval));
-        final candidate = DateTime(
-          monthDate.year,
-          monthDate.month,
-          recurring.dayOfMonth.clamp(1, 28),
-          time.hour,
-          time.minute,
-        );
-        if (candidate.isAfter(now)) {
-          return candidate;
-        }
-      }
-    }
-    if (recurring.recurrencePattern == 'yearly') {
-      final month = recurring.monthOfYear ?? now.month;
-      final thisYear = DateTime(
-        now.year,
-        month,
-        recurring.dayOfMonth.clamp(1, 28),
-        time.hour,
-        time.minute,
-      );
-      if (thisYear.isAfter(now)) {
-        return thisYear;
-      }
-      return DateTime(
-        now.year + 1,
-        month,
-        recurring.dayOfMonth.clamp(1, 28),
-        time.hour,
-        time.minute,
-      );
-    }
-    return null;
-  }
+  //   if (recurring.recurrencePattern == 'manual-variable') {
+  //     return null;
+  //   }
+  //   if (recurring.recurrencePattern == 'daily') {
+  //     final today = atDate(now);
+  //     return today.isAfter(now) ? today : today.add(const Duration(days: 1));
+  //   }
+  //   if (recurring.weekdays.isNotEmpty) {
+  //     for (var offset = 0; offset <= 21; offset++) {
+  //       final day = now.add(Duration(days: offset));
+  //       if (recurring.weekdays.contains(day.weekday)) {
+  //         final candidate = atDate(day);
+  //         if (candidate.isAfter(now)) {
+  //           return candidate;
+  //         }
+  //       }
+  //     }
+  //   }
+  //   if (recurring.recurrencePattern == 'monthly' ||
+  //       recurring.recurrencePattern == 'every_2_months' ||
+  //       recurring.recurrencePattern == 'every_3_months' ||
+  //       recurring.recurrencePattern == 'every_6_months') {
+  //     final interval = switch (recurring.recurrencePattern) {
+  //       'every_2_months' => 2,
+  //       'every_3_months' => 3,
+  //       'every_6_months' => 6,
+  //       _ => 1,
+  //     };
+  //     for (var step = 0; step < 12; step++) {
+  //       final monthDate = DateTime(now.year, now.month + (step * interval));
+  //       final candidate = DateTime(
+  //         monthDate.year,
+  //         monthDate.month,
+  //         recurring.dayOfMonth.clamp(1, 28),
+  //         time.hour,
+  //         time.minute,
+  //       );
+  //       if (candidate.isAfter(now)) {
+  //         return candidate;
+  //       }
+  //     }
+  //   }
+  //   if (recurring.recurrencePattern == 'yearly') {
+  //     final month = recurring.monthOfYear ?? now.month;
+  //     final thisYear = DateTime(
+  //       now.year,
+  //       month,
+  //       recurring.dayOfMonth.clamp(1, 28),
+  //       time.hour,
+  //       time.minute,
+  //     );
+  //     if (thisYear.isAfter(now)) {
+  //       return thisYear;
+  //     }
+  //     return DateTime(
+  //       now.year + 1,
+  //       month,
+  //       recurring.dayOfMonth.clamp(1, 28),
+  //       time.hour,
+  //       time.minute,
+  //     );
+  //   }
+  //   return null;
+  // }
 
-  Duration _leadDuration(RecurringTransactionEntity recurring) {
-    final value = recurring.reminderLeadDays ?? 0;
-    if (recurring.recurrencePattern == 'daily' ||
-        recurring.recurrencePattern == 'weekly' ||
-        recurring.recurrencePattern == 'biweekly' ||
-        recurring.recurrencePattern == 'every_3_weeks') {
-      return Duration(hours: value.clamp(0, 3));
-    }
-    return Duration(days: value.clamp(0, 3));
-  }
+  // Duration _leadDuration(RecurringTransactionEntity recurring) {
+  //   final value = recurring.reminderLeadDays ?? 0;
+  //   if (recurring.recurrencePattern == 'daily' ||
+  //       recurring.recurrencePattern == 'weekly' ||
+  //       recurring.recurrencePattern == 'biweekly' ||
+  //       recurring.recurrencePattern == 'every_3_weeks') {
+  //     return Duration(hours: value.clamp(0, 3));
+  //   }
+  //   return Duration(days: value.clamp(0, 3));
+  // }
 }
 
 class AllocationEditorResult {

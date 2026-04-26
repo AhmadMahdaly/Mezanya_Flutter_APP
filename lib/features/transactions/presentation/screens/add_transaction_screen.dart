@@ -127,6 +127,97 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     }
   }
 
+  double _walletReservedAmount(String walletId) {
+    var reserved = 0.0;
+    for (final transaction in widget.cubit.state.transactions) {
+      if (transaction.fromWalletId == walletId &&
+          transaction.toWalletId != null) {
+        if (transaction.transferType == 'jar-allocation' ||
+            transaction.transferType == 'jar-funding') {
+          reserved += transaction.amount;
+        } else if (transaction.transferType == 'jar-allocation-cancel' ||
+            transaction.transferType == 'jar-allocation-spend') {
+          reserved -= transaction.amount;
+        }
+      }
+      if (transaction.type == 'income' &&
+          transaction.budgetScope == 'within-budget' &&
+          transaction.walletId == walletId &&
+          transaction.toWalletId != null) {
+        reserved += transaction.amount;
+      }
+    }
+    return reserved < 0 ? 0 : reserved;
+  }
+
+  Future<bool> _confirmExpenseImpact({
+    required WalletEntity wallet,
+    required double amount,
+  }) async {
+    var effectiveBalance = wallet.balance;
+    if (widget.initialTransaction?.walletId == wallet.id) {
+      if (widget.initialTransaction?.type == 'expense') {
+        effectiveBalance += widget.initialTransaction!.amount;
+      } else if (widget.initialTransaction?.type == 'income') {
+        effectiveBalance -= widget.initialTransaction!.amount;
+      }
+    }
+
+    final reserved = _walletReservedAmount(wallet.id);
+    final availableNet = effectiveBalance - reserved;
+    final usesReservedFunds = amount > availableNet;
+    final goesNegative = (effectiveBalance - amount) < 0;
+    if (!usesReservedFunds && !goesNegative) {
+      return true;
+    }
+
+    final messages = <String>[
+      if (usesReservedFunds)
+        'هذه المعاملة ستسحب من مبلغ محجوز للحصالات. الصافي المتاح الآن ${availableNet.toStringAsFixed(2)}.',
+      if (goesNegative)
+        'هذه المعاملة ستجعل رصيد المحفظة بالسالب. الرصيد بعد التنفيذ ${(effectiveBalance - amount).toStringAsFixed(2)}.',
+    ];
+
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('تأكيد تنفيذ المعاملة'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              wallet.name,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 10),
+            ...messages.map(
+              (message) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(message),
+              ),
+            ),
+            Text(
+              'يمكنك متابعة العملية الآن ثم تعديل ربطها بالحصالة أو المخصص لاحقًا.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('رجوع'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('تنفيذ'),
+          ),
+        ],
+      ),
+    );
+    return approved == true;
+  }
+
   bool get _canSubmit {
     final amount = double.tryParse(_amountController.text.trim()) ?? 0;
     if (_isSaving || amount <= 0 || _walletId.isEmpty) {
@@ -230,18 +321,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-          // gradient: LinearGradient(
-          color: Color(0xffeee5d8)
-          // theme.scaffoldBackgroundColor,
-          // theme.colorScheme.surface,
-          // ,
-          // theme.colorScheme.secondaryContainer.withValues(alpha: 0.55),
-          // ],
-          //   begin: Alignment.topCenter,
-          //   end: Alignment.bottomCenter,
-          // ),
-          // borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-          ),
+        color: theme.scaffoldBackgroundColor,
+      ),
       child: GestureDetector(
         onTap: () => unfocusScope(context),
         child: SafeArea(
@@ -307,8 +388,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                                 value: 'yearly', child: Text('مرة كل سنة')),
                           ],
                           onChanged: (v) {
-                            if (v != null)
+                            if (v != null) {
                               setState(() => _recurrencePattern = v);
+                            }
                           },
                         ),
                         const SizedBox(height: 8),
@@ -377,8 +459,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             DropdownMenuItem(value: 7, child: Text('الأحد')),
                           ],
                           onChanged: (v) {
-                            if (v != null)
+                            if (v != null) {
                               setState(() => _recurrenceWeekday = v);
+                            }
                           },
                         ),
                       ],
@@ -664,6 +747,25 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                                     _showValidationError(
                                         'اكتب اسم المعاملة المتكررة.');
                                     return;
+                                  }
+
+                                  if (!widget.recurringMode &&
+                                      _type == 'expense') {
+                                    final currentWallet = wallets
+                                        .where(
+                                          (wallet) => wallet.id == _walletId,
+                                        )
+                                        .toList();
+                                    if (currentWallet.isNotEmpty) {
+                                      final approved =
+                                          await _confirmExpenseImpact(
+                                        wallet: currentWallet.first,
+                                        amount: amount,
+                                      );
+                                      if (!approved) {
+                                        return;
+                                      }
+                                    }
                                   }
 
                                   final selectedJarId = _budgetTargetId

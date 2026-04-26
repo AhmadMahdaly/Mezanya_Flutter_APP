@@ -30,6 +30,7 @@ class RecurringTransactionComposerScreen extends StatefulWidget {
     required this.initialType,
     this.initialRecurring,
     this.initialWithinBudget = false,
+    this.initialExpensePlanKind,
     this.returnOnSave = false,
     this.allowDelete = false,
   });
@@ -38,6 +39,7 @@ class RecurringTransactionComposerScreen extends StatefulWidget {
   final String initialType;
   final RecurringTransactionEntity? initialRecurring;
   final bool initialWithinBudget;
+  final String? initialExpensePlanKind;
   final bool returnOnSave;
   final bool allowDelete;
 
@@ -60,6 +62,7 @@ class _RecurringTransactionComposerScreenState
   late String _recurrencePattern;
   late String _iconName;
   late String _iconColor;
+  late String _expensePlanKind;
 
   bool _isVariableIncome = false;
   bool _isDebtOrSubscription = true;
@@ -90,6 +93,9 @@ class _RecurringTransactionComposerScreenState
     _iconName = recurring?.icon ?? (_type == 'income' ? 'cash' : 'category');
     _iconColor =
         recurring?.iconColor ?? (_type == 'income' ? '#0f9d7a' : '#c65d2e');
+    _expensePlanKind = recurring?.expensePlanKind ??
+        widget.initialExpensePlanKind ??
+        (_type == 'expense' && _withinBudget ? 'installment' : 'normal');
     _nameController.text = recurring?.name ?? '';
     _amountController.text = recurring == null
         ? ''
@@ -101,7 +107,8 @@ class _RecurringTransactionComposerScreenState
     _debtPrincipalController.text =
         principal != null && principal > 0 ? principal.toStringAsFixed(2) : '';
     _isVariableIncome = recurring?.isVariableIncome ?? false;
-    _isDebtOrSubscription = recurring?.isDebtOrSubscription ?? true;
+    _isDebtOrSubscription = recurring?.isDebtOrSubscription ??
+        (_expensePlanKind == 'installment' || _expensePlanKind == 'subscription');
     _monthlyDay = (recurring?.dayOfMonth ?? 1).clamp(1, 28);
     _yearlyDay = (recurring?.dayOfMonth ?? 1).clamp(1, 28);
     _yearlyMonth =
@@ -122,10 +129,17 @@ class _RecurringTransactionComposerScreenState
     if (_type == 'income' && _withinBudget && _isVariableIncome) {
       _executionType = 'manual';
     }
+
+    _nameController.addListener(_refreshFormState);
+    _amountController.addListener(_refreshFormState);
+    _debtPrincipalController.addListener(_refreshFormState);
   }
 
   @override
   void dispose() {
+    _nameController.removeListener(_refreshFormState);
+    _amountController.removeListener(_refreshFormState);
+    _debtPrincipalController.removeListener(_refreshFormState);
     _nameController.dispose();
     _amountController.dispose();
     _debtPrincipalController.dispose();
@@ -150,6 +164,10 @@ class _RecurringTransactionComposerScreenState
       _recurrencePattern == 'every_3_months' ||
       _recurrencePattern == 'every_6_months';
 
+  bool get _isExpenseInstallment => _expensePlanKind == 'installment';
+
+  bool get _isExpenseSubscription => _expensePlanKind == 'subscription';
+
   bool get _canSave {
     if (_isSaving || _nameController.text.trim().isEmpty || _walletId.isEmpty) {
       return false;
@@ -171,6 +189,11 @@ class _RecurringTransactionComposerScreenState
     return true;
   }
 
+  void _refreshFormState() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -180,7 +203,7 @@ class _RecurringTransactionComposerScreenState
     final visibleCategories = _visibleCategories(state.categories, budget);
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(widget.initialRecurring == null
             ? 'إضافة معاملة متكررة'
@@ -230,7 +253,7 @@ class _RecurringTransactionComposerScreenState
                 decoration: InputDecoration(
                   labelText: _type == 'expense' &&
                           _withinBudget &&
-                          _isDebtOrSubscription
+                          _isExpenseInstallment
                       ? 'مبلغ القسط أو الدفعة'
                       : 'المبلغ',
                   prefixIcon: const Icon(Icons.payments_rounded),
@@ -240,7 +263,7 @@ class _RecurringTransactionComposerScreenState
             ],
             if (_type == 'expense' &&
                 _withinBudget &&
-                _isDebtOrSubscription) ...[
+                _isExpenseInstallment) ...[
               TextField(
                 controller: _debtPrincipalController,
                 keyboardType:
@@ -292,15 +315,26 @@ class _RecurringTransactionComposerScreenState
                       _allocationId = null;
                       _targetJarId = null;
                       _isDebtOrSubscription = false;
+                      _expensePlanKind = 'normal';
                       _isVariableIncome = false;
                     } else if (_type == 'expense') {
-                      _isDebtOrSubscription = true;
+                      _expensePlanKind = widget.initialExpensePlanKind ??
+                          _expensePlanKind;
+                      _isDebtOrSubscription = _expensePlanKind != 'normal';
                     }
                   });
                 },
               ),
             ),
             const SizedBox(height: 12),
+            if (_type == 'expense' && _withinBudget) ...[
+              _expenseKindSection(),
+              const SizedBox(height: 12),
+              if (_isExpenseSubscription) ...[
+                _subscriptionSuggestionSection(),
+                const SizedBox(height: 12),
+              ],
+            ],
             if (_withinBudget) ...[
               _surfaceSection(
                 child: ListTile(
@@ -502,7 +536,11 @@ class _RecurringTransactionComposerScreenState
                 setState(() {
                   _type = 'expense';
                   if (_withinBudget) {
-                    _isDebtOrSubscription = true;
+                    _expensePlanKind = widget.initialExpensePlanKind ??
+                        (_expensePlanKind == 'normal'
+                            ? 'installment'
+                            : _expensePlanKind);
+                    _isDebtOrSubscription = _expensePlanKind != 'normal';
                   }
                 });
               },
@@ -519,6 +557,8 @@ class _RecurringTransactionComposerScreenState
                   _type = 'income';
                   _allocationId = null;
                   _targetJarId = null;
+                  _expensePlanKind = 'normal';
+                  _isDebtOrSubscription = false;
                 });
               },
             ),
@@ -577,6 +617,178 @@ class _RecurringTransactionComposerScreenState
     );
   }
 
+  Widget _expenseKindSection() {
+    return _surfaceSection(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'نوع العملية',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _planChoiceTile(
+                  label: 'مصروف عادي',
+                  icon: Icons.repeat_rounded,
+                  selected: _expensePlanKind == 'normal',
+                  onTap: () {
+                    setState(() {
+                      _expensePlanKind = 'normal';
+                      _isDebtOrSubscription = false;
+                      _debtPrincipalController.clear();
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _planChoiceTile(
+                  label: 'تقسيط',
+                  icon: Icons.account_balance_outlined,
+                  selected: _isExpenseInstallment,
+                  onTap: () {
+                    setState(() {
+                      _expensePlanKind = 'installment';
+                      _isDebtOrSubscription = true;
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _planChoiceTile(
+                  label: 'اشتراك',
+                  icon: Icons.subscriptions_rounded,
+                  selected: _isExpenseSubscription,
+                  onTap: () {
+                    setState(() {
+                      _expensePlanKind = 'subscription';
+                      _isDebtOrSubscription = true;
+                      _debtPrincipalController.clear();
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _planChoiceTile({
+    required String label,
+    required IconData icon,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? theme.colorScheme.primary.withValues(alpha: 0.12)
+              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outlineVariant.withValues(alpha: 0.7),
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: selected
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: selected
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurface,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _subscriptionSuggestionSection() {
+    const presets = <Map<String, String>>[
+      {
+        'name': 'Netflix',
+        'icon': 'movie',
+        'color': '#E53935',
+      },
+      {
+        'name': 'Shahid',
+        'icon': 'live_tv',
+        'color': '#2F6F5E',
+      },
+      {
+        'name': 'Spotify',
+        'icon': 'music_note',
+        'color': '#1DB954',
+      },
+      {
+        'name': 'Amazon Prime',
+        'icon': 'local_shipping',
+        'color': '#1E88E5',
+      },
+    ];
+
+    return _surfaceSection(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'اقتراحات سريعة للاشتراكات',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'يمكنك اختيار خدمة جاهزة أو تجاهلها وكتابة الاسم والأيقونة بنفسك.',
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: presets.map((preset) {
+              return ActionChip(
+                label: Text(preset['name']!),
+                avatar: Icon(
+                  _subscriptionIcon(preset['icon']!),
+                  size: 18,
+                  color: _parseColor(preset['color']!),
+                ),
+                onPressed: () => _applySubscriptionPreset(
+                  name: preset['name']!,
+                  icon: preset['icon']!,
+                  color: preset['color']!,
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _budgetTargetSection(BudgetSetupEntity budget) {
     return _surfaceSection(
       child: Theme(
@@ -595,13 +807,22 @@ class _RecurringTransactionComposerScreenState
               value: true,
               groupValue: _isDebtOrSubscription,
               contentPadding: EdgeInsets.zero,
-              title: const Text('معاملة دين أو اشتراك'),
-              subtitle: const Text(
-                'لن تُحسب من أي مخصص وستظهر ضمن الديون والاشتراكات',
+              title: Text(
+                _isExpenseSubscription
+                    ? 'اشتراك أو خدمة شهرية'
+                    : 'معاملة تقسيط',
+              ),
+              subtitle: Text(
+                _isExpenseSubscription
+                    ? 'لن تُحسب من أي مخصص وستظهر ضمن الديون والاشتراكات'
+                    : 'تظهر ضمن الديون والاشتراكات مع متابعة أصل التقسيط',
               ),
               onChanged: (value) {
                 setState(() {
                   _isDebtOrSubscription = true;
+                  if (_expensePlanKind == 'normal') {
+                    _expensePlanKind = 'installment';
+                  }
                   _allocationId = null;
                   _targetJarId = null;
                 });
@@ -625,6 +846,7 @@ class _RecurringTransactionComposerScreenState
                 title: Text(allocation.name),
                 onChanged: (value) {
                   setState(() {
+                    _expensePlanKind = 'normal';
                     _isDebtOrSubscription = false;
                     _allocationId = value;
                     _targetJarId = null;
@@ -650,6 +872,7 @@ class _RecurringTransactionComposerScreenState
                 title: Text(jar.name),
                 onChanged: (value) {
                   setState(() {
+                    _expensePlanKind = 'normal';
                     _isDebtOrSubscription = false;
                     _targetJarId = value;
                     _allocationId = null;
@@ -665,7 +888,7 @@ class _RecurringTransactionComposerScreenState
 
   String _selectedBudgetTargetLabel(BudgetSetupEntity budget) {
     if (_isDebtOrSubscription) {
-      return 'معاملة دين أو اشتراك';
+      return _isExpenseSubscription ? 'اشتراك أو خدمة شهرية' : 'تقسيط';
     }
 
     if (_allocationId != null) {
@@ -899,6 +1122,36 @@ class _RecurringTransactionComposerScreenState
     return allCategories.where((category) => category.scope == _type).toList();
   }
 
+  void _applySubscriptionPreset({
+    required String name,
+    required String icon,
+    required String color,
+  }) {
+    setState(() {
+      if (_nameController.text.trim().isEmpty ||
+          _isExpenseSubscription) {
+        _nameController.text = name;
+      }
+      _iconName = icon;
+      _iconColor = color;
+      _expensePlanKind = 'subscription';
+      _isDebtOrSubscription = true;
+    });
+  }
+
+  IconData _subscriptionIcon(String key) {
+    switch (key) {
+      case 'live_tv':
+        return Icons.live_tv_rounded;
+      case 'music_note':
+        return Icons.music_note_rounded;
+      case 'local_shipping':
+        return Icons.local_shipping_rounded;
+      default:
+        return Icons.movie_rounded;
+    }
+  }
+
   Future<void> _pickIcon() async {
     final picked = await AppIconPickerDialog.show(
       context,
@@ -927,7 +1180,7 @@ class _RecurringTransactionComposerScreenState
     final principalRaw = double.tryParse(_debtPrincipalController.text.trim());
     final debtPrincipalTotal = (_type == 'expense' &&
             _withinBudget &&
-            _isDebtOrSubscription &&
+            _isExpenseInstallment &&
             principalRaw != null &&
             principalRaw > 0)
         ? principalRaw
@@ -967,6 +1220,10 @@ class _RecurringTransactionComposerScreenState
       isVariableIncome: _isVariableIncome,
       isDebtOrSubscription:
           _type == 'expense' && _withinBudget && _isDebtOrSubscription,
+      expensePlanKind:
+          _type == 'expense' && _withinBudget && _isDebtOrSubscription
+              ? _expensePlanKind
+              : null,
       debtPrincipalTotal: debtPrincipalTotal,
       notes: _notesController.text.trim().isEmpty
           ? null
@@ -1004,6 +1261,7 @@ class _RecurringTransactionComposerScreenState
         categoryIds: recurring.categoryIds,
         isVariableIncome: recurring.isVariableIncome,
         isDebtOrSubscription: recurring.isDebtOrSubscription,
+        expensePlanKind: recurring.expensePlanKind,
         debtPrincipalTotal: recurring.debtPrincipalTotal,
         notes: recurring.notes,
       );
@@ -1031,6 +1289,7 @@ class _RecurringTransactionComposerScreenState
           categoryIds: recurring.categoryIds,
           isVariableIncome: recurring.isVariableIncome,
           isDebtOrSubscription: recurring.isDebtOrSubscription,
+          expensePlanKind: recurring.expensePlanKind,
           debtPrincipalTotal: recurring.debtPrincipalTotal,
           notes: recurring.notes,
         ),

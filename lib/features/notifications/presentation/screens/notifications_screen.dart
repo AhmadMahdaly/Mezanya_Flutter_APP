@@ -153,7 +153,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           amount: remaining,
           actions: [
             _actionButton(
-              label: 'نزول',
+              label: 'تأكيد الخصم',
               onPressed: () =>
                   _recordDebt(debt, recurring, meta['occurrence'] as DateTime),
             ),
@@ -296,7 +296,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             Text(
               'الوقت: ${DateFormat('d/M/yyyy - HH:mm', 'ar').format(item.createdAt)}',
             ),
-            if (log != null) ...[
+            if (log != null && log.action == 'delete' && !log.isReverted) ...[
               const SizedBox(height: 16),
               OutlinedButton.icon(
                 onPressed: () async {
@@ -308,9 +308,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 icon: Icon(
                   log.isReverted ? Icons.redo_rounded : Icons.undo_rounded,
                 ),
-                label: Text(
-                  log.isReverted ? 'إلغاء التراجع' : 'التراجع عن الإجراء',
-                ),
+                label: const Text('تراجع عن الحذف'),
               ),
             ],
           ],
@@ -390,15 +388,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (recurring == null || recurring.executionType != 'confirm') {
       return null;
     }
-    final occurrence = _nextRecurringOccurrence(recurring, DateTime.now());
+    final now = DateTime.now();
+    final dueNow = _dueOccurrenceNow(recurring, now);
+    final occurrence = dueNow ?? _nextRecurringOccurrence(recurring, now);
     if (occurrence == null) {
+      return null;
+    }
+    if (_occurrenceWasHandled(recurring, occurrence)) {
       return null;
     }
     final snoozedUntil = recurring.snoozedUntil == null || recurring.snoozedUntil!.isEmpty
         ? null
         : DateTime.tryParse(recurring.snoozedUntil!);
     final reminderAt = _notificationMoment(recurring, occurrence);
-    final now = DateTime.now();
     if (snoozedUntil != null && now.isBefore(snoozedUntil)) {
       return <String, dynamic>{
         'pending': false,
@@ -416,6 +418,74 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           : 'مستحق الآن • ${DateFormat('d/M HH:mm', 'ar').format(occurrence)}',
       'occurrence': occurrence,
     };
+  }
+
+  bool _occurrenceWasHandled(
+    RecurringTransactionEntity recurring,
+    DateTime occurrence,
+  ) {
+    final handled = recurring.lastHandledOccurrenceAt == null
+        ? null
+        : DateTime.tryParse(recurring.lastHandledOccurrenceAt!);
+    if (handled == null) {
+      return false;
+    }
+    final normalized = DateTime(
+      occurrence.year,
+      occurrence.month,
+      occurrence.day,
+      occurrence.hour,
+      occurrence.minute,
+    );
+    return !handled.isBefore(normalized);
+  }
+
+  DateTime? _dueOccurrenceNow(
+    RecurringTransactionEntity recurring,
+    DateTime now,
+  ) {
+    final time = _parseRecurringTime(recurring.scheduledTime) ?? now;
+    DateTime atDate(DateTime day) =>
+        DateTime(day.year, day.month, day.day, time.hour, time.minute);
+
+    if (recurring.recurrencePattern == 'daily') {
+      final today = atDate(now);
+      return today.isAfter(now) ? null : today;
+    }
+
+    if (recurring.weekdays.isNotEmpty) {
+      for (var offset = 0; offset <= 21; offset++) {
+        final day = now.subtract(Duration(days: offset));
+        if (recurring.weekdays.contains(day.weekday)) {
+          final candidate = atDate(day);
+          if (!candidate.isAfter(now)) {
+            return candidate;
+          }
+        }
+      }
+      return null;
+    }
+
+    if (recurring.recurrencePattern == 'yearly') {
+      final month = recurring.monthOfYear ?? now.month;
+      final candidate = DateTime(
+        now.year,
+        month,
+        recurring.dayOfMonth.clamp(1, 28),
+        time.hour,
+        time.minute,
+      );
+      return candidate.isAfter(now) ? null : candidate;
+    }
+
+    final candidate = DateTime(
+      now.year,
+      now.month,
+      recurring.dayOfMonth.clamp(1, 28),
+      time.hour,
+      time.minute,
+    );
+    return candidate.isAfter(now) ? null : candidate;
   }
 
   DateTime _incomeDueDateForMonth(IncomeSourceEntity source, DateTime month) {

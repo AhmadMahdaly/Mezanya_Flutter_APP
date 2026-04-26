@@ -53,7 +53,41 @@ class SharedPrefsAppRepository implements AppRepository {
     var linkedWallets = List<LinkedWalletEntity>.from(current.budgetSetup.linkedWallets);
     var transactions = <TransactionEntity>[...current.transactions, transaction];
 
-    if (transaction.transferType == 'jar-allocation' ||
+    if (transaction.transferType == 'allocation-to-jar') {
+      linkedWallets = linkedWallets.map((wallet) {
+        if (wallet.id != transaction.toWalletId) return wallet;
+        return LinkedWalletEntity(
+          id: wallet.id,
+          name: wallet.name,
+          balance: wallet.balance + transaction.amount,
+          monthlyAmount: wallet.monthlyAmount,
+          executionDay: wallet.executionDay,
+          fundingSource: wallet.fundingSource,
+          funding: wallet.funding,
+          icon: wallet.icon,
+          iconColor: wallet.iconColor,
+          automationType: wallet.automationType,
+          categories: wallet.categories,
+        );
+      }).toList();
+    } else if (transaction.transferType == 'jar-to-allocation') {
+      linkedWallets = linkedWallets.map((wallet) {
+        if (wallet.id != transaction.walletId) return wallet;
+        return LinkedWalletEntity(
+          id: wallet.id,
+          name: wallet.name,
+          balance: wallet.balance - transaction.amount,
+          monthlyAmount: wallet.monthlyAmount,
+          executionDay: wallet.executionDay,
+          fundingSource: wallet.fundingSource,
+          funding: wallet.funding,
+          icon: wallet.icon,
+          iconColor: wallet.iconColor,
+          automationType: wallet.automationType,
+          categories: wallet.categories,
+        );
+      }).toList();
+    } else if (transaction.transferType == 'jar-allocation' ||
         transaction.transferType == 'jar-allocation-cancel' ||
         transaction.transferType == 'jar-allocation-spend') {
       linkedWallets = linkedWallets.map((wallet) {

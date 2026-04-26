@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 
 class AppTheme {
   static ThemeData tactileManuscript() {
-    const primary = Color(0xFF059669); // Emerald Green
-    const primaryDim = Color(0xFF047857);
-    const bgWarmPaper = Color(0xFFF9FAFB); // Modern Light Gray
-    const surfaceCLow = Color(0xFFF3F4F6);
-    const surfaceC = Color(0xFFE5E7EB);
-    const surfaceCLowest = Color(0xFFFFFFFF); // Pure White Cards
-    const textDark = Color(0xFF111827);
-    const textSoft = Color(0xFF6B7280);
-    const secContainer = Color(0xFFD1FAE5); // Mint Green
-    const terContainer = Color(0xFFDBEAFE); // Light Blue
+    const primary = Color(0xFF2F6F5E);
+    const primaryDim = Color(0xFF1F4F43);
+    const bgWarmPaper = Color(0xFFFAF4E8);
+    const surfaceCLow = Color(0xFFF4EAD9);
+    const surfaceC = Color(0xFFE7D9C4);
+    const surfaceCLowest = Color(0xFFFFFBF2);
+    const textDark = Color(0xFF2D2A22);
+    const textSoft = Color(0xFF7A705F);
+    const secContainer = Color(0xFFDCEBD6);
+    const terContainer = Color(0xFFECE0C8);
 
     final scheme = ColorScheme.fromSeed(
       seedColor: primary,
@@ -24,13 +24,13 @@ class AppTheme {
       onSurface: textDark,
       onSurfaceVariant: textSoft,
       error: const Color(0xFFD32F2F),
-      outlineVariant: textDark.withValues(alpha: 0.15),
+      outlineVariant: const Color(0xFFD8C9B2),
     );
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: bgWarmPaper,
+      scaffoldBackgroundColor: bgWarmPaper.withValues(alpha: 0.94),
       textTheme: const TextTheme(
         bodyLarge: TextStyle(color: textDark, height: 1.6, fontSize: 16),
         bodyMedium: TextStyle(color: textDark, height: 1.5, fontSize: 14),
@@ -44,6 +44,7 @@ class AppTheme {
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: bgWarmPaper,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
@@ -57,8 +58,9 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         color: surfaceCLowest,
-        elevation: 0,
-        shadowColor: textDark.withValues(alpha: 0.06),
+        surfaceTintColor: Colors.transparent,
+        elevation: 0.5,
+        shadowColor: const Color(0xFF8B7A5F).withValues(alpha: 0.10),
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(28),
@@ -67,7 +69,7 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: surfaceCLow,
+        fillColor: surfaceCLowest,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         labelStyle: TextStyle(color: textDark.withValues(alpha: 0.6)),
@@ -78,7 +80,7 @@ class AppTheme {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(color: Color(0xFFE0D1BC), width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
@@ -100,15 +102,16 @@ class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(0, 52),
-          foregroundColor: textDark,
-          side: BorderSide(color: scheme.outlineVariant, width: 1),
+          foregroundColor: primaryDim,
+          backgroundColor: surfaceCLowest.withValues(alpha: 0.68),
+          side: const BorderSide(color: Color(0xFFD8C9B2), width: 1),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           textStyle: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: surfaceCLow,
+        backgroundColor: surfaceCLowest,
         selectedColor: secContainer,
         disabledColor: surfaceC,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -144,13 +147,14 @@ class AppTheme {
       ),
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: bgWarmPaper,
+        surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: surfaceCLow.withValues(alpha: 0.82),
-        surfaceTintColor: surfaceC,
+        backgroundColor: surfaceCLowest.withValues(alpha: 0.88),
+        surfaceTintColor: Colors.transparent,
         indicatorColor: secContainer,
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
@@ -171,14 +175,15 @@ class AppTheme {
         }),
       ),
       fontFamily: 'IBM Plex Sans Arabic',
-      primaryColor: const Color(0xFF059669),
+      primaryColor: primary,
 
       visualDensity: VisualDensity.adaptivePlatformDensity,
 
       /// ستايل الزر الرئيسي (ElevatedButton)
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF059669),
+          backgroundColor: primary,
+          foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -192,6 +197,7 @@ class AppTheme {
       /// ستايل الزر الثانوي (TextButton)
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
+          foregroundColor: primaryDim,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),

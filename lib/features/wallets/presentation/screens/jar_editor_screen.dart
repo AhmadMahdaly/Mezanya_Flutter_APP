@@ -160,6 +160,7 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
 
   void _save() {
     final name = _nameController.text.trim();
+
     if (name.isEmpty) {
       _showMessage('اكتب اسمًا واضحًا للحصالة أولًا.');
       return;
@@ -167,17 +168,27 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
 
     final cleanedFunding = _funding
         .where(
-            (item) => item.incomeSourceId.isNotEmpty && item.plannedAmount > 0)
+          (item) => item.incomeSourceId.isNotEmpty && item.plannedAmount > 0,
+        )
         .toList();
+
+    // الإصلاح
+    if (cleanedFunding.isEmpty) {
+      _showMessage(
+        'أضف مصدر تمويل واحد على الأقل بمبلغ أكبر من صفر.',
+      );
+      return;
+    }
+
     final day = (int.tryParse(_dayController.text.trim()) ?? 1).clamp(1, 28);
-    final primary =
-        cleanedFunding.isNotEmpty ? cleanedFunding.first.incomeSourceId : '';
+
+    final primary = cleanedFunding.first.incomeSourceId;
 
     final entity = LinkedWalletEntity(
       id: widget.current?.id ?? widget.idFactory('linked'),
       name: name,
       balance: widget.current?.balance ?? 0,
-      monthlyAmount: cleanedFunding.fold<double>(
+      monthlyAmount: cleanedFunding.fold(
         0,
         (sum, item) => sum + item.plannedAmount,
       ),
@@ -190,7 +201,9 @@ class _JarEditorScreenState extends State<JarEditorScreen> {
       categories: widget.current?.categories ?? const [],
     );
 
-    Navigator.of(context).pop(JarEditorResult(entity: entity));
+    Navigator.of(context).pop(
+      JarEditorResult(entity: entity),
+    );
   }
 
   Future<void> _requestDeleteJar() async {

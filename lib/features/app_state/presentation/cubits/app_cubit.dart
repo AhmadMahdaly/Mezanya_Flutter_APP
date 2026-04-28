@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -30,7 +30,8 @@ class AppCubit extends Cubit<AppStateEntity> {
     }
   }
 
-  String _id(String prefix) => '$prefix-${DateTime.now().microsecondsSinceEpoch}';
+  String _id(String prefix) =>
+      '$prefix-${DateTime.now().microsecondsSinceEpoch}';
   String _monthKey([DateTime? at]) {
     final date = at ?? DateTime.now();
     final mm = date.month.toString().padLeft(2, '0');
@@ -92,7 +93,8 @@ class AppCubit extends Cubit<AppStateEntity> {
     );
     final next = nextRaw.copyWith(
       logs: [log, ...nextRaw.logs].take(600).toList(),
-      notifications: [notification, ...nextRaw.notifications].take(800).toList(),
+      notifications:
+          [notification, ...nextRaw.notifications].take(800).toList(),
     );
     await _repository.saveState(next);
     emit(next);
@@ -155,7 +157,11 @@ class AppCubit extends Cubit<AppStateEntity> {
   }) async {
     final walletName = walletId == null
         ? null
-        : state.wallets.where((w) => w.id == walletId).map((w) => w.name).cast<String?>().firstWhere((_) => true, orElse: () => null);
+        : state.wallets
+            .where((w) => w.id == walletId)
+            .map((w) => w.name)
+            .cast<String?>()
+            .firstWhere((_) => true, orElse: () => null);
     final incomeName = incomeSourceId == null
         ? null
         : state.budgetSetup.incomeSources
@@ -216,7 +222,8 @@ class AppCubit extends Cubit<AppStateEntity> {
       return 'معاملة دخل بقيمة ${amount.toStringAsFixed(2)} من $source إلى $wallet';
     }
     if (type == 'expense') {
-      final budgetLabel = budgetScope == 'within-budget' ? 'داخل الميزانية' : 'خارج الميزانية';
+      final budgetLabel =
+          budgetScope == 'within-budget' ? 'داخل الميزانية' : 'خارج الميزانية';
       final alloc = allocationName == null ? '' : ' ضمن مخصص $allocationName';
       final wallet = walletName ?? 'محفظة غير محددة';
       return 'معاملة مصروف بقيمة ${amount.toStringAsFixed(2)} من $wallet ($budgetLabel)$alloc';
@@ -225,7 +232,8 @@ class AppCubit extends Cubit<AppStateEntity> {
   }
 
   Future<void> deleteTransaction(String transactionId) async {
-    final target = state.transactions.where((t) => t.id == transactionId).toList();
+    final target =
+        state.transactions.where((t) => t.id == transactionId).toList();
     if (target.isEmpty) {
       return;
     }
@@ -273,7 +281,8 @@ class AppCubit extends Cubit<AppStateEntity> {
       }).toList();
     } else if (transaction.type == 'transfer') {
       wallets = wallets.map((w) {
-        if (transaction.fromWalletId != null && w.id == transaction.fromWalletId) {
+        if (transaction.fromWalletId != null &&
+            w.id == transaction.fromWalletId) {
           return w.copyWith(balance: w.balance + transaction.amount);
         }
         if (transaction.toWalletId != null && w.id == transaction.toWalletId) {
@@ -318,7 +327,8 @@ class AppCubit extends Cubit<AppStateEntity> {
     final next = state.copyWith(
       wallets: wallets,
       budgetSetup: state.budgetSetup.copyWith(linkedWallets: linked),
-      transactions: state.transactions.where((t) => t.id != transactionId).toList(),
+      transactions:
+          state.transactions.where((t) => t.id != transactionId).toList(),
     );
     await _applyAndLog(
       action: 'delete',
@@ -351,7 +361,10 @@ class AppCubit extends Cubit<AppStateEntity> {
     String? iconColor,
   }) async {
     final wallets = state.wallets
-        .map((wallet) => wallet.id == id ? wallet.copyWith(name: name, balance: balance, icon: icon, iconColor: iconColor) : wallet)
+        .map((wallet) => wallet.id == id
+            ? wallet.copyWith(
+                name: name, balance: balance, icon: icon, iconColor: iconColor)
+            : wallet)
         .toList();
     final next = state.copyWith(wallets: wallets);
     await _applyAndLog(
@@ -364,7 +377,8 @@ class AppCubit extends Cubit<AppStateEntity> {
   }
 
   Future<void> deleteWallet(String id) async {
-    final next = state.copyWith(wallets: state.wallets.where((wallet) => wallet.id != id).toList());
+    final next = state.copyWith(
+        wallets: state.wallets.where((wallet) => wallet.id != id).toList());
     await _applyAndLog(
       action: 'delete',
       entityType: 'wallet',
@@ -394,7 +408,8 @@ class AppCubit extends Cubit<AppStateEntity> {
     if (nextReserved < 0) nextReserved = 0;
 
     walletList[idx] = wallet.copyWith(reservedForSavings: nextReserved);
-    final totalReserved = walletList.fold<double>(0, (s, w) => s + w.reservedForSavings);
+    final totalReserved =
+        walletList.fold<double>(0, (s, w) => s + w.reservedForSavings);
     final linked = state.budgetSetup.linkedWallets
         .map(
           (j) => j.id == 'linked-savings-default'
@@ -434,13 +449,16 @@ class AppCubit extends Cubit<AppStateEntity> {
   }
 
   Future<void> addLinkedWallet(LinkedWalletEntity linkedWallet) async {
-    await updateBudgetSetup(state.budgetSetup.copyWith(linkedWallets: [...state.budgetSetup.linkedWallets, linkedWallet]));
+    await updateBudgetSetup(state.budgetSetup.copyWith(
+        linkedWallets: [...state.budgetSetup.linkedWallets, linkedWallet]));
   }
 
   Future<void> updateLinkedWallet(LinkedWalletEntity linkedWallet) async {
     await updateBudgetSetup(
       state.budgetSetup.copyWith(
-        linkedWallets: state.budgetSetup.linkedWallets.map((item) => item.id == linkedWallet.id ? linkedWallet : item).toList(),
+        linkedWallets: state.budgetSetup.linkedWallets
+            .map((item) => item.id == linkedWallet.id ? linkedWallet : item)
+            .toList(),
       ),
     );
   }
@@ -451,7 +469,9 @@ class AppCubit extends Cubit<AppStateEntity> {
     }
     await updateBudgetSetup(
       state.budgetSetup.copyWith(
-        linkedWallets: state.budgetSetup.linkedWallets.where((wallet) => wallet.id != id).toList(),
+        linkedWallets: state.budgetSetup.linkedWallets
+            .where((wallet) => wallet.id != id)
+            .toList(),
       ),
     );
   }
@@ -484,7 +504,8 @@ class AppCubit extends Cubit<AppStateEntity> {
               )
             : item)
         .toList();
-    await updateBudgetSetup(state.budgetSetup.copyWith(allocations: allocations));
+    await updateBudgetSetup(
+        state.budgetSetup.copyWith(allocations: allocations));
   }
 
   Future<void> updateLinkedWalletCategories({
@@ -508,7 +529,8 @@ class AppCubit extends Cubit<AppStateEntity> {
               )
             : item)
         .toList();
-    await updateBudgetSetup(state.budgetSetup.copyWith(linkedWallets: linkedWallets));
+    await updateBudgetSetup(
+        state.budgetSetup.copyWith(linkedWallets: linkedWallets));
   }
 
   Future<void> updateSettings({
@@ -608,7 +630,8 @@ class AppCubit extends Cubit<AppStateEntity> {
     );
   }
 
-  Future<void> updateRecurringTransaction(RecurringTransactionEntity recurring) async {
+  Future<void> updateRecurringTransaction(
+      RecurringTransactionEntity recurring) async {
     final next = state.copyWith(
       recurringTransactions: state.recurringTransactions
           .map((item) => item.id == recurring.id ? recurring : item)
@@ -624,9 +647,8 @@ class AppCubit extends Cubit<AppStateEntity> {
   }
 
   Future<void> deleteRecurringTransaction(String id) async {
-    final target = state.recurringTransactions
-        .where((item) => item.id == id)
-        .toList();
+    final target =
+        state.recurringTransactions.where((item) => item.id == id).toList();
     final deleted = target.isEmpty ? null : target.first;
     final next = state.copyWith(
       recurringTransactions:
@@ -700,8 +722,32 @@ class AppCubit extends Cubit<AppStateEntity> {
   }
 
   Future<void> ensureDefaultSavingsJar() async {
-    final hasDefault = state.budgetSetup.linkedWallets.any((w) => w.id == 'linked-savings-default');
-    if (hasDefault) {
+    final defaultIndex = state.budgetSetup.linkedWallets
+        .indexWhere((w) => w.id == 'linked-savings-default');
+    if (defaultIndex != -1) {
+      final current = state.budgetSetup.linkedWallets[defaultIndex];
+      if (current.name != 'التوفير') {
+        final linkedWallets =
+            List<LinkedWalletEntity>.from(state.budgetSetup.linkedWallets);
+        linkedWallets[defaultIndex] = LinkedWalletEntity(
+          id: current.id,
+          name: 'التوفير',
+          balance: current.balance,
+          monthlyAmount: current.monthlyAmount,
+          executionDay: current.executionDay,
+          fundingSource: current.fundingSource,
+          funding: current.funding,
+          icon: current.icon,
+          iconColor: current.iconColor,
+          automationType: current.automationType,
+          categories: current.categories,
+        );
+        final next = state.copyWith(
+          budgetSetup: state.budgetSetup.copyWith(linkedWallets: linkedWallets),
+        );
+        await _repository.saveState(next);
+        emit(next);
+      }
       return;
     }
     final fallbackIncomeId = state.budgetSetup.incomeSources.isNotEmpty
@@ -709,7 +755,7 @@ class AppCubit extends Cubit<AppStateEntity> {
         : '';
     final defaultJar = LinkedWalletEntity(
       id: 'linked-savings-default',
-      name: 'ط­طµط§ظ„ط© ط§ظ„طھظˆظپظٹط±',
+      name: 'التوفير',
       balance: 0,
       monthlyAmount: 0,
       executionDay: 1,
@@ -741,14 +787,17 @@ class AppCubit extends Cubit<AppStateEntity> {
   }
 
   Future<void> syncSavingsJarWithReserved() async {
-    final totalReserved = state.wallets.fold<double>(0, (sum, w) => sum + w.reservedForSavings);
-    final idx = state.budgetSetup.linkedWallets.indexWhere((w) => w.id == 'linked-savings-default');
+    final totalReserved =
+        state.wallets.fold<double>(0, (sum, w) => sum + w.reservedForSavings);
+    final idx = state.budgetSetup.linkedWallets
+        .indexWhere((w) => w.id == 'linked-savings-default');
     if (idx == -1) return;
     final current = state.budgetSetup.linkedWallets[idx];
     if ((current.balance - totalReserved).abs() < 0.0001) {
       return;
     }
-    final linked = List<LinkedWalletEntity>.from(state.budgetSetup.linkedWallets);
+    final linked =
+        List<LinkedWalletEntity>.from(state.budgetSetup.linkedWallets);
     linked[idx] = LinkedWalletEntity(
       id: current.id,
       name: current.name,
@@ -800,7 +849,8 @@ class AppCubit extends Cubit<AppStateEntity> {
 
   Future<void> updateGoal(GoalEntity goal) async {
     final next = state.copyWith(
-      goals: state.goals.map((item) => item.id == goal.id ? goal : item).toList(),
+      goals:
+          state.goals.map((item) => item.id == goal.id ? goal : item).toList(),
     );
     await _applyAndLog(
       action: 'edit',
@@ -812,7 +862,8 @@ class AppCubit extends Cubit<AppStateEntity> {
   }
 
   Future<void> deleteGoal(String id) async {
-    final next = state.copyWith(goals: state.goals.where((item) => item.id != id).toList());
+    final next = state.copyWith(
+        goals: state.goals.where((item) => item.id != id).toList());
     await _applyAndLog(
       action: 'delete',
       entityType: 'goal',
@@ -853,16 +904,23 @@ class AppCubit extends Cubit<AppStateEntity> {
     final log = target.first;
 
     final updatedLogs = state.logs
-        .map((item) => item.id == logId ? item.copyWith(isReverted: !item.isReverted, revertedAt: item.isReverted ? null : DateTime.now()) : item)
+        .map((item) => item.id == logId
+            ? item.copyWith(
+                isReverted: !item.isReverted,
+                revertedAt: item.isReverted ? null : DateTime.now())
+            : item)
         .toList();
 
-    final restored = _restoreFromCore(log.isReverted ? log.afterState : log.beforeState, updatedLogs);
+    final restored = _restoreFromCore(
+        log.isReverted ? log.afterState : log.beforeState, updatedLogs);
     final revertLog = LogEntryEntity(
       id: _id('log'),
       action: 'revert',
       entityType: log.entityType,
       entityId: log.entityId,
-      details: log.isReverted ? 'تم التراجع عن التراجع' : 'تم التراجع عن العملية الأصلية',
+      details: log.isReverted
+          ? 'تم التراجع عن التراجع'
+          : 'تم التراجع عن العملية الأصلية',
       timestamp: DateTime.now(),
       beforeState: jsonEncode(_coreMap(state.copyWith(logs: updatedLogs))),
       afterState: jsonEncode(_coreMap(restored)),
@@ -878,7 +936,8 @@ class AppCubit extends Cubit<AppStateEntity> {
     );
     final next = restored.copyWith(
       logs: [revertLog, ...updatedLogs].take(600).toList(),
-      notifications: [revertNotification, ...state.notifications].take(800).toList(),
+      notifications:
+          [revertNotification, ...state.notifications].take(800).toList(),
     );
     await _repository.saveState(next);
     emit(next);
@@ -886,12 +945,12 @@ class AppCubit extends Cubit<AppStateEntity> {
 
   Future<void> markNotificationRead(String notificationId) async {
     final updated = state.notifications
-        .map((n) => n.id == notificationId && !n.isRead ? n.copyWith(readAt: DateTime.now()) : n)
+        .map((n) => n.id == notificationId && !n.isRead
+            ? n.copyWith(readAt: DateTime.now())
+            : n)
         .toList();
     final next = state.copyWith(notifications: updated);
     await _repository.saveState(next);
     emit(next);
   }
 }
-
-

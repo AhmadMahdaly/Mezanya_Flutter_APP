@@ -21,77 +21,71 @@ class WalletsScreen extends StatefulWidget {
 class _WalletsScreenState extends State<WalletsScreen> {
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.ltr,
-      child: StreamBuilder<AppStateEntity>(
-        stream: widget.cubit.stream,
-        initialData: widget.cubit.state,
-        builder: (context, snapshot) {
-          final state = snapshot.data ?? widget.cubit.state;
-          final wallets = state.wallets;
-          final jars = _orderedJars(state.budgetSetup.linkedWallets);
+    return StreamBuilder<AppStateEntity>(
+      stream: widget.cubit.stream,
+      initialData: widget.cubit.state,
+      builder: (context, snapshot) {
+        final state = snapshot.data ?? widget.cubit.state;
+        final wallets = state.wallets;
+        final jars = _orderedJars(state.budgetSetup.linkedWallets);
 
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
-            children: [
-              _overviewSection(
-                title: 'المحافظ',
-                subtitle:
-                    'الأماكن الحقيقية للفلوس: كاش، بنك، أو أي محفظة فعلية.',
-                height: 376,
-                addTooltip: 'إضافة محفظة',
-                transferTooltip: 'تحويل بين المحافظ',
-                onAdd: () => _openWalletEditor(),
-                onTransfer:
-                    wallets.length < 2 ? null : _openWalletTransferDialog,
-                onMore: () => _openWalletsPage(state),
-                child: wallets.isEmpty
-                    ? const _EmptyStateCard(
-                        title: 'لا توجد محافظ بعد',
-                        subtitle: 'أضف محفظة فعلية لتسجيل الفلوس الحقيقية.',
-                      )
-                    : Column(
-                        children: wallets.take(2).map((wallet) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: _compactWalletTile(state, wallet),
-                          );
-                        }).toList(),
-                      ),
-              ),
-              const SizedBox(height: 18),
-              _overviewSection(
-                title: 'الحصالات',
-                subtitle:
-                    'أوعية تنظيم ذهني للفلوس الموجودة أصلًا داخل المحافظ.',
-                height: 360,
-                addTooltip: 'إضافة حصالة',
-                transferTooltip: 'تحويل بين الحصالات',
-                onAdd: () => _openJarEditor(),
-                onTransfer:
-                    jars.length < 2 && state.budgetSetup.allocations.isEmpty
-                        ? null
-                        : () => _openInternalTransferDialog(),
-                onMore: () => _openJarsPage(state),
-                child: jars.isEmpty
-                    ? const _EmptyStateCard(
-                        title: 'لا توجد حصالات بعد',
-                        subtitle:
-                            'ابدأ بحصالة التوفير أو أنشئ حصالة لتنظيم جزء من فلوسك.',
-                      )
-                    : Column(
-                        children: jars.take(2).map((jar) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: _compactJarTile(state, jar),
-                          );
-                        }).toList(),
-                      ),
-              ),
-            ],
-          );
-        },
-      ),
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
+          children: [
+            _overviewSection(
+              title: 'المحافظ',
+              subtitle: 'الأماكن الحقيقية للفلوس: كاش، بنك، أو أي محفظة فعلية.',
+              height: 376,
+              addTooltip: 'إضافة محفظة',
+              transferTooltip: 'تحويل بين المحافظ',
+              onAdd: () => _openWalletEditor(),
+              onTransfer: wallets.length < 2 ? null : _openWalletTransferDialog,
+              onMore: () => _openWalletsPage(state),
+              child: wallets.isEmpty
+                  ? const _EmptyStateCard(
+                      title: 'لا توجد محافظ بعد',
+                      subtitle: 'أضف محفظة فعلية لتسجيل الفلوس الحقيقية.',
+                    )
+                  : Column(
+                      children: wallets.take(2).map((wallet) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _compactWalletTile(state, wallet),
+                        );
+                      }).toList(),
+                    ),
+            ),
+            const SizedBox(height: 18),
+            _overviewSection(
+              title: 'الحصالات',
+              subtitle: 'أوعية تنظيم ذهني للفلوس الموجودة أصلًا داخل المحافظ.',
+              height: 360,
+              addTooltip: 'إضافة حصالة',
+              transferTooltip: 'تحويل بين الحصالات',
+              onAdd: () => _openJarEditor(),
+              onTransfer:
+                  jars.length < 2 && state.budgetSetup.allocations.isEmpty
+                      ? null
+                      : () => _openInternalTransferDialog(),
+              onMore: () => _openJarsPage(state),
+              child: jars.isEmpty
+                  ? const _EmptyStateCard(
+                      title: 'لا توجد حصالات بعد',
+                      subtitle:
+                          'ابدأ بحصالة التوفير أو أنشئ حصالة لتنظيم جزء من فلوسك.',
+                    )
+                  : Column(
+                      children: jars.take(2).map((jar) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _compactJarTile(state, jar),
+                        );
+                      }).toList(),
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -126,23 +120,12 @@ class _WalletsScreenState extends State<WalletsScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                IconButton.filledTonal(
-                  onPressed: onAdd,
-                  icon: const Icon(Icons.add_rounded),
-                  tooltip: addTooltip,
-                ),
-                const SizedBox(width: 8),
-                IconButton.filledTonal(
-                  onPressed: onTransfer,
-                  icon: const Icon(Icons.swap_horiz_rounded),
-                  tooltip: transferTooltip,
-                ),
-                const Spacer(),
                 Expanded(
                   flex: 4,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         title,
@@ -152,22 +135,39 @@ class _WalletsScreenState extends State<WalletsScreen> {
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        textAlign: TextAlign.right,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF6E6558),
-                          height: 1.35,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
                     ],
                   ),
                 ),
+                const Spacer(),
+                Row(
+                  children: [
+                    IconButton.filledTonal(
+                      onPressed: onAdd,
+                      icon: const Icon(Icons.add_rounded),
+                      tooltip: addTooltip,
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filledTonal(
+                      onPressed: onTransfer,
+                      icon: const Icon(Icons.swap_horiz_rounded),
+                      tooltip: transferTooltip,
+                    ),
+                  ],
+                ),
               ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              textAlign: TextAlign.right,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF6E6558),
+                height: 1.35,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 8),
             Expanded(child: child),
@@ -232,6 +232,12 @@ class _WalletsScreenState extends State<WalletsScreen> {
         ),
         child: Row(
           children: [
+            _iconBubble(
+              iconName: icon,
+              colorHex: _hexFromColor(accent),
+              size: 44,
+            ),
+            const SizedBox(width: 10),
             Text(
               amount.toStringAsFixed(2),
               style: TextStyle(
@@ -269,12 +275,6 @@ class _WalletsScreenState extends State<WalletsScreen> {
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 10),
-            _iconBubble(
-              iconName: icon,
-              colorHex: _hexFromColor(accent),
-              size: 44,
             ),
           ],
         ),
@@ -701,16 +701,18 @@ class _WalletsScreenState extends State<WalletsScreen> {
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
     await showModalBottomSheet<void>(
-      context: context,showDragHandle:true,
-      isScrollControlled: true,useSafeArea :true,
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFFFCF7EC),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-        ),
-        child:  Column(
+          decoration: const BoxDecoration(
+            color: Color(0xFFFCF7EC),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          child: Column(
             children: [
               _heroCard(
                 title: wallet.name,
@@ -809,15 +811,16 @@ class _WalletsScreenState extends State<WalletsScreen> {
 
     await showModalBottomSheet<void>(
       context: context,
-      isScrollControlled: true,showDragHandle:true,
+      isScrollControlled: true,
+      showDragHandle: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFFFCF7EC),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-        ),
-        child: Column(
+          decoration: const BoxDecoration(
+            color: Color(0xFFFCF7EC),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          child: Column(
             children: [
               _heroCard(
                 title: jar.name,

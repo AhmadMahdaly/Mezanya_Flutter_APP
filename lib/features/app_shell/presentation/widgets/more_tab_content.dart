@@ -1,216 +1,357 @@
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
-import '../../../app_state/presentation/cubits/app_cubit.dart';
 import '../../../budget/presentation/screens/budget_setup_screen.dart';
 import '../../../categories/presentation/screens/categories_screen.dart';
 import '../../../goals/presentation/screens/goals_screen.dart';
 import '../../../logs/presentation/screens/logs_screen.dart';
 import '../../../notifications/presentation/screens/notifications_center_screen.dart';
-import 'package:mezanya_app/features/settings/presentation/screens/app_settings_screen.dart';
 import '../../../transactions/presentation/screens/recurring_transactions_screen.dart';
+import 'package:mezanya_app/features/settings/presentation/screens/app_settings_screen.dart';
 import 'section_page_scaffold.dart';
 
-class MoreTabContent extends StatelessWidget {
+import '../../../app_state/presentation/cubits/app_cubit.dart';
+
+class MoreTabContent extends StatefulWidget {
+  final AppCubit cubit;
+
   const MoreTabContent({
     super.key,
     required this.cubit,
   });
 
-  final AppCubit cubit;
+  @override
+  State<MoreTabContent> createState() => _MoreTabContentState();
+}
 
-  static const List<_MoreMenuEntry> _entries = [
-    _MoreMenuEntry(
-      label: 'إعداد الميزانية',
-      destination: 'budget-setup',
-    ),
-    _MoreMenuEntry(
-      label: 'العمليات المتكررة',
-      destination: 'recurring-transactions',
-    ),
-    _MoreMenuEntry(
-      label: 'إعداد الفئات',
-      destination: 'categories',
-    ),
-    _MoreMenuEntry(
-      label: 'الأهداف',
-      destination: 'goals',
-    ),
-    _MoreMenuEntry(
-      label: 'السجلات',
-      destination: 'logs',
-    ),
-    _MoreMenuEntry(
-      label: 'الإشعارات',
-      destination: 'notifications',
-    ),
-    _MoreMenuEntry(
-      label: 'إعدادات التطبيق',
-      destination: 'app-settings',
-    ),
-  ];
+class _MoreTabContentState extends State<MoreTabContent> {
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
+
+  GoogleSignInAccount? user;
 
   @override
-  Widget build(BuildContext context) {
-    final state = cubit.state;
-    final userName = state.userName.trim().isEmpty
-        ? 'مستخدم ميزانية'
-        : state.userName.trim();
-    final googleAccountLabel =
-        state.googleEmail.isEmpty ? 'غير متصل بحساب Google' : state.googleEmail;
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final signedUser =
+        _googleSignIn.currentUser ?? await _googleSignIn.signInSilently();
+
+    if (!mounted) return;
+
+    setState(() {
+      user = signedUser;
+    });
+  }
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    final state = widget.cubit.state;
+
+    final customName = state.userName.trim();
+
+    final googleName = user?.displayName ?? '';
+
+    final name = customName.isNotEmpty
+        ? customName
+        : (googleName.isNotEmpty ? googleName : 'مستخدم ميزانية');
+
+    final email = user?.email ?? state.googleEmail.trim();
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text(
-          'المزيد',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        const SizedBox(height: 12),
-        _UserProfileCard(
-          userName: userName,
-          userInitial: userName.characters.first,
-          googleAccountLabel: googleAccountLabel,
-        ),
-        const SizedBox(height: 10),
-        ..._entries.map(
-          (entry) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Card(
-              child: ListTile(
-                title: Text(entry.label),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => _openDestination(context, entry),
-              ),
+        // HEADER CARD
+        Container(
+          margin: const EdgeInsets.only(
+            bottom: 18,
+          ),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [
+                Color(0xFF2F6F5E),
+                Color(0xFF3C8973),
+              ],
             ),
+            borderRadius: BorderRadius.circular(
+              26,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                blurRadius: 16,
+                offset: Offset(0, 6),
+                color: Color(0x22000000),
+              )
+            ],
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 34,
+                backgroundColor: Colors.white24,
+                backgroundImage: user?.photoUrl != null
+                    ? NetworkImage(
+                        user!.photoUrl!,
+                      )
+                    : null,
+                child: user?.photoUrl == null
+                    ? Text(
+                        name[0],
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(
+                width: 14,
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(
+                      height: 6,
+                    ),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.verified,
+                          size: 15,
+                          color: Colors.white70,
+                        ),
+                        const SizedBox(
+                          width: 6,
+                        ),
+                        Expanded(
+                          child: Text(
+                            email.isEmpty ? 'غير متصل بحساب Google' : email,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(
+                  10,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white12,
+                  borderRadius: BorderRadius.circular(
+                    14,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.person_outline,
+                  color: Colors.white,
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: () async {
-            await cubit.updateSettings(googleEmail: '');
-            if (!context.mounted) {
-              return;
-            }
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('غير متصل بحساب Google')),
+
+        _tile(
+          'إعداد الميزانية',
+          Icons.tune_rounded,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SectionPageScaffold(
+                  title: 'إعداد الميزانية',
+                  child: BudgetSetupScreen(
+                    cubit: widget.cubit,
+                    displayMonth: DateTime.now(),
+                  ),
+                ),
+              ),
             );
           },
-          icon: const Icon(Icons.logout_rounded),
-          label: const Text('تسجيل الخروج'),
+        ),
+
+        _tile(
+          'العمليات المتكررة',
+          Icons.repeat_rounded,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SectionPageScaffold(
+                  title: 'العمليات المتكررة',
+                  child: RecurringTransactionsScreen(
+                    cubit: widget.cubit,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+
+        _tile(
+          'إعداد الفئات',
+          Icons.grid_view_rounded,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SectionPageScaffold(
+                  title: 'إعداد الفئات',
+                  child: CategoriesScreen(
+                    cubit: widget.cubit,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+
+        _tile(
+          'الأهداف',
+          Icons.flag_rounded,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SectionPageScaffold(
+                  title: 'الأهداف',
+                  child: GoalsScreen(
+                    cubit: widget.cubit,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+
+        _tile(
+          'السجلات',
+          Icons.receipt_long_rounded,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => LogsScreen(
+                  cubit: widget.cubit,
+                ),
+              ),
+            );
+          },
+        ),
+
+        _tile(
+          'الإشعارات',
+          Icons.notifications_none,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SectionPageScaffold(
+                  title: 'الإشعارات',
+                  child: NotificationsScreen(
+                    cubit: widget.cubit,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+
+        _tile(
+          'إعدادات التطبيق',
+          Icons.settings_rounded,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SectionPageScaffold(
+                  title: 'إعدادات التطبيق',
+                  child: AppSettingsScreen(
+                    cubit: widget.cubit,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+
+        const SizedBox(
+          height: 30,
         ),
       ],
     );
   }
 
-  void _openDestination(BuildContext context, _MoreMenuEntry entry) {
-    final page = switch (entry.destination) {
-      'budget-setup' => SectionPageScaffold(
-          title: 'إعداد الميزانية',
-          child: BudgetSetupScreen(
-            cubit: cubit,
-            displayMonth: DateTime.now(),
+  Widget _tile(
+    String title,
+    IconData icon, {
+    VoidCallback? onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(
+        bottom: 10,
+      ),
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(
+            20,
           ),
         ),
-      'categories' => SectionPageScaffold(
-          title: 'إعداد الفئات',
-          child: CategoriesScreen(cubit: cubit),
-        ),
-      'recurring-transactions' => SectionPageScaffold(
-          title: 'العمليات المتكررة',
-          child: RecurringTransactionsScreen(cubit: cubit),
-        ),
-      'app-settings' => SectionPageScaffold(
-          title: 'إعدادات التطبيق',
-          child: AppSettingsScreen(cubit: cubit),
-        ),
-      'goals' => SectionPageScaffold(
-          title: 'الأهداف',
-          child: GoalsScreen(cubit: cubit),
-        ),
-      'logs' => LogsScreen(cubit: cubit),
-      'notifications' => SectionPageScaffold(
-          title: 'الإشعارات',
-          child: NotificationsScreen(cubit: cubit),
-        ),
-      _ => null,
-    };
-
-    if (page == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('صفحة ${entry.label} جاهزة للربط.')),
-      );
-      return;
-    }
-
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => page),
-    );
-  }
-}
-
-class _UserProfileCard extends StatelessWidget {
-  const _UserProfileCard({
-    required this.userName,
-    required this.userInitial,
-    required this.googleAccountLabel,
-  });
-
-  final String userName;
-  final String userInitial;
-  final String googleAccountLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 28,
-              child: Text(
-                userInitial,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
+        child: ListTile(
+          onTap: onTap,
+          leading: Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: const Color(
+                0x112F6F5E,
+              ),
+              borderRadius: BorderRadius.circular(
+                12,
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    userName,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    googleAccountLabel,
-                    style: Theme.of(context).textTheme.bodySmall,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+            child: Icon(
+              icon,
+              color: const Color(
+                0xFF2F6F5E,
               ),
             ),
-          ],
+          ),
+          title: Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          trailing: const Icon(
+            Icons.chevron_left,
+          ),
         ),
       ),
     );
   }
-}
-
-class _MoreMenuEntry {
-  const _MoreMenuEntry({
-    required this.label,
-    required this.destination,
-  });
-
-  final String label;
-  final String destination;
 }

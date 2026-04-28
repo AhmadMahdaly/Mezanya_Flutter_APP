@@ -1,282 +1,573 @@
-import 'dart:convert';
-import 'dart:developer';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:googleapis/drive/v3.dart' as drive;
-import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../app_state/presentation/cubits/app_cubit.dart';
 
 class BackupSettingsScreen extends StatefulWidget {
   final AppCubit cubit;
-  const BackupSettingsScreen({super.key, required this.cubit});
+
+  const BackupSettingsScreen({
+    super.key,
+    required this.cubit,
+  });
 
   @override
   State<BackupSettingsScreen> createState() => _BackupSettingsScreenState();
 }
 
-class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
-  static const bgColor = Color(0xFFFAF7F2);
-  static const cardColor = Color(0xFFFFFEFC);
-  static const primaryGreen = Color(0xFF2F6F5E);
+enum BackupFrequency {
+  onExit,
+  daily,
+  weekly,
+  monthly,
+}
+
+class _BackupSettingsScreenState extends State<BackupSettingsScreen>
+    with WidgetsBindingObserver {
+  static const Color primary = Color(0xFF2F6F5E);
+
+  static const Color bg = Color(0xFFF6F7F5);
 
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: ['email', drive.DriveApi.driveFileScope],
+    scopes: ['email'],
   );
 
   GoogleSignInAccount? _account;
-  bool _loading = false;
+
+  bool loading = false;
+
+  String? localPath;
+
+  BackupFrequency localFreq = BackupFrequency.onExit;
+
+  BackupFrequency cloudFreq = BackupFrequency.weekly;
 
   @override
   void initState() {
     super.initState();
-    _loadAccount();
+
+    WidgetsBinding.instance.addObserver(this);
+
+    _loadGoogle();
   }
 
-  Future<void> _loadAccount() async {
-    final acc = await _googleSignIn.signInSilently();
-    if (mounted) setState(() => _account = acc);
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+
+    super.dispose();
   }
 
-  /// 🔑 user id
-  String get userId => _account?.email ?? 'guest';
-
-  /// ================= LOCAL =================
-  Future<void> _saveOnce() async {
-    final dir = await FilePicker.getDirectoryPath();
-    if (dir == null) return;
-
-    final file = File(
-      '$dir/backup_${DateTime.now().millisecondsSinceEpoch}.json',
-    );
-
-    await file.writeAsString(widget.cubit.exportStateJson());
-
-    _snack('تم الحفظ محليًا ✔');
-  }
-
-  Future<void> _import() async {
-    final r = await FilePicker.pickFiles(type: FileType.any);
-    if (r == null || r.files.single.path == null) return;
-
-    final data = await File(r.files.single.path!).readAsString();
-    await widget.cubit.importStateJson(data);
-
-    _snack('تم الاسترجاع محليًا ✔');
-  }
-
-  /// ================= FIRESTORE =================
-  Future<void> _uploadFirestore() async {
-    try {
-      setState(() => _loading = true);
-
-      final data = widget.cubit.exportStateJson();
-
-      await FirebaseFirestore.instance.collection('backups').doc(userId).set({
-        'data': data,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-
-      _snack('تم رفع النسخة على Firebase ✔');
-    } catch (e) {
-      _snack('فشل Firebase: $e');
-      log('$e');
-    } finally {
-      setState(() => _loading = false);
+  @override
+  void didChangeAppLifecycleState(
+    AppLifecycleState state,
+  ) {
+    if (state == AppLifecycleState.paused &&
+        localFreq == BackupFrequency.onExit &&
+        localPath != null) {
+      _saveLocal(
+        silent: true,
+      );
     }
   }
 
-  Future<void> _downloadFirestore() async {
-    try {
-      setState(() => _loading = true);
+  Future<void> _loadGoogle() async {
+    final acc =
+        _googleSignIn.currentUser ?? await _googleSignIn.signInSilently();
 
-      final doc = await FirebaseFirestore.instance
-          .collection('backups')
-          .doc(userId)
-          .get();
+    if (!mounted) return;
 
-      if (!doc.exists) {
-        _snack('لا يوجد نسخة على Firebase');
-        return;
-      }
-
-      final data = doc.data()?['data'];
-
-      if (data != null) {
-        await widget.cubit.importStateJson(data);
-        _snack('تم الاسترجاع من Firebase ✔');
-      }
-    } catch (e) {
-      _snack('فشل Firebase: $e');
-      log('$e');
-    } finally {
-      setState(() => _loading = false);
-    }
+    setState(() {
+      _account = acc;
+    });
   }
 
-  /// ================= DRIVE =================
-  Future<void> _uploadDrive() async {
+  bool _guardAuth() {
     if (_account == null) {
-      _snack('سجل دخول الأول');
-      return;
+      _msg(
+        'سجل دخول بحساب جوجل أولًا',
+      );
+      return false;
     }
 
-    final auth = await _account!.authentication;
-    final client = GoogleAuthClient(auth.accessToken!);
-    final api = drive.DriveApi(client);
-
-    final data = widget.cubit.exportStateJson();
-    final bytes = utf8.encode(data);
-
-    final media = drive.Media(
-      Stream.value(bytes),
-      bytes.length,
-    );
-
-    await api.files.create(
-      drive.File()..name = "mezanya_backup.json",
-      uploadMedia: media,
-    );
-
-    _snack('تم رفع على Drive ✔');
+    return true;
   }
 
-  Future<void> _downloadDrive() async {
-    if (_account == null) return;
-
-    final auth = await _account!.authentication;
-    final client = GoogleAuthClient(auth.accessToken!);
-    final api = drive.DriveApi(client);
-
-    final files = await api.files.list(
-      q: "name='mezanya_backup.json'",
-    );
-
-    if (files.files == null || files.files!.isEmpty) {
-      _snack('لا يوجد نسخة');
-      return;
-    }
-
-    final media = await api.files.get(
-      files.files!.first.id!,
-      downloadOptions: drive.DownloadOptions.fullMedia,
-    ) as drive.Media;
-
-    final bytes = await media.stream.toList();
-    final data = utf8.decode(bytes.expand((e) => e).toList());
-
-    await widget.cubit.importStateJson(data);
-
-    _snack('تم الاسترجاع من Drive ✔');
-  }
-
-  void _snack(String msg) {
+  void _msg(String text) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg),
-        behavior: SnackBarBehavior.fixed,
+        content: Text(text),
       ),
     );
   }
 
+  String label(
+    BackupFrequency f,
+  ) {
+    switch (f) {
+      case BackupFrequency.onExit:
+        return 'مع غلق التطبيق';
+
+      case BackupFrequency.daily:
+        return 'يوميًا 12 صباحًا';
+
+      case BackupFrequency.weekly:
+        return 'كل جمعة 12 صباحًا';
+
+      case BackupFrequency.monthly:
+        return '1 من كل شهر';
+    }
+  }
+
+  Future<bool> _requestStoragePermission() async {
+    if (await Permission.manageExternalStorage.isGranted) {
+      return true;
+    }
+
+    final status = await Permission.manageExternalStorage.request();
+
+    if (status.isGranted) {
+      return true;
+    }
+
+    await openAppSettings();
+
+    return false;
+  }
+
+  // =================
+  // LOCAL BACKUP
+  // =================
+
+  Future<void> _pickFolder() async {
+    final ok = await _requestStoragePermission();
+
+    if (!ok) return;
+
+    final path = await FilePicker.getDirectoryPath();
+
+    if (path == null) return;
+
+    setState(() {
+      localPath = path;
+    });
+
+    _msg(
+      'تم تحديد مجلد النسخ',
+    );
+  }
+
+  Future<void> _saveLocal({
+    bool silent = false,
+  }) async {
+    if (localPath == null) {
+      _msg(
+        'حدد مكان الحفظ أولًا',
+      );
+      return;
+    }
+
+    final path = '$localPath${Platform.pathSeparator}mezanya_backup.json';
+
+    final file = File(path);
+
+    if (!await file.exists()) {
+      await file.create(
+        recursive: true,
+      );
+    }
+
+    await file.writeAsString(
+      widget.cubit.exportStateJson(),
+    );
+
+    if (!silent) {
+      _msg(
+        'تم حفظ النسخة محليًا',
+      );
+    }
+  }
+
+  Future<void> _restoreLocal() async {
+    final result = await FilePicker.pickFiles();
+
+    if (result == null || result.files.single.path == null) {
+      return;
+    }
+
+    final json = await File(
+      result.files.single.path!,
+    ).readAsString();
+
+    await widget.cubit.importStateJson(json);
+
+    _msg(
+      'تم الاسترجاع المحلي',
+    );
+  }
+
+  // =================
+  // FIREBASE BACKUP
+  // =================
+
+  Future<void> _backupFirestore() async {
+    if (!_guardAuth()) return;
+
+    try {
+      setState(() {
+        loading = true;
+      });
+
+      await FirebaseFirestore.instance
+          .collection('backups')
+          .doc(_account!.email)
+          .set({
+        'email': _account!.email,
+        'name': _account!.displayName,
+        'backup': widget.cubit.exportStateJson(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      _msg(
+        'تم رفع النسخة',
+      );
+    } catch (e) {
+      _msg(
+        'فشل رفع النسخة',
+      );
+    } finally {
+      setState(() {
+        loading = false;
+      });
+    }
+  }
+
+  Future<void> _restoreFirestore() async {
+    if (!_guardAuth()) return;
+
+    try {
+      setState(() {
+        loading = true;
+      });
+
+      final doc = await FirebaseFirestore.instance
+          .collection('backups')
+          .doc(_account!.email)
+          .get();
+
+      if (!doc.exists || doc.data() == null) {
+        _msg(
+          'لا توجد نسخة محفوظة',
+        );
+        return;
+      }
+
+      final json = doc.data()!['backup'];
+
+      if (json == null || json.toString().isEmpty) {
+        _msg(
+          'النسخة فارغة',
+        );
+        return;
+      }
+
+      await widget.cubit.importStateJson(
+        json.toString(),
+      );
+
+      _msg(
+        'تم استرجاع النسخة',
+      );
+    } catch (e) {
+      _msg(
+        'فشل الاسترجاع',
+      );
+    } finally {
+      setState(() {
+        loading = false;
+      });
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: bg,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: bg,
+        foregroundColor: Colors.black,
+        title: const Text(
+          'النسخة الاحتياطية',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
       body: Stack(
         children: [
           ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              /// LOCAL
-              _card(
-                child: Column(
-                  children: [
-                    _btn('حفظ محلي', Icons.save, _saveOnce),
-                    _btn('استرجاع محلي', Icons.upload, _import),
-                  ],
-                ),
+              // =================
+              // LOCAL
+              // =================
+
+              _section(
+                title: 'النسخ المحلي',
+                subtitle: 'حفظ واسترجاع على الجهاز',
+                children: [
+                  _infoTile(
+                    icon: Icons.folder,
+                    title: 'مكان الحفظ',
+                    value: localPath ?? 'لم يتم الاختيار',
+                    onTap: _pickFolder,
+                  ),
+                  const SizedBox(
+                    height: 14,
+                  ),
+                  _frequencyDropdown(
+                    localFreq,
+                    (v) {
+                      if (v == null) return;
+
+                      setState(() {
+                        localFreq = v;
+                      });
+                    },
+                  ),
+                  const SizedBox(
+                    height: 18,
+                  ),
+                  _mainButton(
+                    'حفظ الآن',
+                    Icons.save,
+                    () => _saveLocal(),
+                  ),
+                  _outlineButton(
+                    'استرجاع نسخة',
+                    Icons.restore,
+                    _restoreLocal,
+                  ),
+                ],
               ),
 
-              const SizedBox(height: 16),
-
-              /// FIREBASE
-              _card(
-                child: Column(
-                  children: [
-                    const Text('Firebase'),
-                    _btn('رفع على Firebase', Icons.cloud_upload,
-                        _uploadFirestore),
-                    _btn('استرجاع من Firebase', Icons.cloud_download,
-                        _downloadFirestore),
-                  ],
-                ),
+              const SizedBox(
+                height: 18,
               ),
 
-              const SizedBox(height: 16),
+              // =================
+              // FIREBASE
+              // =================
 
-              /// DRIVE
-              _card(
-                child: Column(
-                  children: [
-                    const Text('Google Drive'),
-                    _btn('رفع على Drive', Icons.cloud_upload, _uploadDrive),
-                    _btn('استرجاع من Drive', Icons.cloud_download,
-                        _downloadDrive),
-                  ],
-                ),
+              _section(
+                title: 'Firebase Backup',
+                subtitle: 'رفع واسترجاع من السحابة',
+                children: [
+                  _frequencyDropdown(
+                    cloudFreq,
+                    (v) {
+                      if (v == null) return;
+
+                      setState(() {
+                        cloudFreq = v;
+                      });
+                    },
+                  ),
+                  const SizedBox(
+                    height: 18,
+                  ),
+                  _mainButton(
+                    'رفع الآن',
+                    Icons.cloud_upload,
+                    _backupFirestore,
+                  ),
+                  _outlineButton(
+                    'استرجاع من Firebase',
+                    Icons.cloud_download,
+                    _restoreFirestore,
+                  ),
+                  _outlineButton(
+                    'تفعيل المزامنة',
+                    Icons.sync,
+                    () {
+                      _msg(
+                        'تم حفظ ${label(cloudFreq)}',
+                      );
+                    },
+                  ),
+                ],
+              ),
+
+              const SizedBox(
+                height: 30,
               ),
             ],
           ),
-          if (_loading) const Center(child: CircularProgressIndicator()),
+          if (loading)
+            const Center(
+              child: CircularProgressIndicator(),
+            ),
         ],
       ),
     );
   }
 
-  Widget _card({required Widget child}) {
+  Widget _section({
+    required String title,
+    required String subtitle,
+    required List<Widget> children,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: const [
+          BoxShadow(
+            blurRadius: 15,
+            offset: Offset(0, 6),
+            color: Color(0x12000000),
+          ),
+        ],
       ),
-      child: child,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(
+            height: 8,
+          ),
+          Text(subtitle),
+          const SizedBox(
+            height: 18,
+          ),
+          ...children,
+        ],
+      ),
     );
   }
 
-  Widget _btn(String text, IconData icon, VoidCallback onTap) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: primaryGreen,
-            foregroundColor: Colors.white,
+  Widget _infoTile({
+    required IconData icon,
+    required String title,
+    required String value,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      onTap: onTap,
+      tileColor: const Color(0xFFF4F6F4),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+      ),
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: Text(value),
+      trailing: const Icon(
+        Icons.chevron_left,
+      ),
+    );
+  }
+
+  Widget _frequencyDropdown(
+    BackupFrequency value,
+    ValueChanged<BackupFrequency?> changed,
+  ) {
+    return DropdownButtonFormField<BackupFrequency>(
+      initialValue: value,
+      decoration: const InputDecoration(
+        labelText: 'تكرار النسخ',
+      ),
+      items: BackupFrequency.values
+          .map(
+            (e) => DropdownMenuItem(
+              value: e,
+              child: Text(
+                label(e),
+              ),
+            ),
+          )
+          .toList(),
+      onChanged: changed,
+    );
+  }
+
+  Widget _mainButton(
+    String text,
+    IconData icon,
+    VoidCallback onTap,
+  ) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: onTap,
+        icon: Icon(icon),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primary,
+          foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(
+            54,
           ),
-          onPressed: onTap,
-          icon: Icon(icon),
-          label: Text(text),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(
+              18,
+            ),
+          ),
+        ),
+        label: Text(
+          text,
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );
   }
-}
 
-class GoogleAuthClient extends http.BaseClient {
-  final String token;
-  final http.Client _client = http.Client();
-
-  GoogleAuthClient(this.token);
-
-  @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) {
-    request.headers['Authorization'] = 'Bearer $token';
-    return _client.send(request);
+  Widget _outlineButton(
+    String text,
+    IconData icon,
+    VoidCallback onTap,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(
+        top: 10,
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: onTap,
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(
+              54,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(
+                18,
+              ),
+            ),
+          ),
+          icon: Icon(icon),
+          label: Text(
+            text,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

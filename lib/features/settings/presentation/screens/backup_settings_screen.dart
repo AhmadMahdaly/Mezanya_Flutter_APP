@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../app_state/presentation/cubits/app_cubit.dart';
 
@@ -52,7 +53,22 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen>
 
     WidgetsBinding.instance.addObserver(this);
 
-    _loadGoogle();
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    setState(() {
+      loading = true;
+    });
+
+    await _loadSettings();
+    await _loadGoogle();
+
+    if (mounted) {
+      setState(() {
+        loading = false;
+      });
+    }
   }
 
   @override
@@ -66,7 +82,8 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen>
   void didChangeAppLifecycleState(
     AppLifecycleState state,
   ) {
-    if (state == AppLifecycleState.paused &&
+    if ((state == AppLifecycleState.paused ||
+            state == AppLifecycleState.detached) &&
         localFreq == BackupFrequency.onExit &&
         localPath != null) {
       _saveLocal(
@@ -76,20 +93,66 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen>
   }
 
   Future<void> _loadGoogle() async {
-    final acc =
-        _googleSignIn.currentUser ?? await _googleSignIn.signInSilently();
+    _account = _googleSignIn.currentUser;
 
-    if (!mounted) return;
+    if (_account == null) {
+      _account = await _googleSignIn.signInSilently();
+    }
+  }
 
-    setState(() {
-      _account = acc;
-    });
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    localPath = prefs.getString(
+      'backup_local_path',
+    );
+
+    final local = prefs.getString(
+      'backup_local_freq',
+    );
+
+    final cloud = prefs.getString(
+      'backup_cloud_freq',
+    );
+
+    if (local != null) {
+      localFreq = BackupFrequency.values.firstWhere(
+        (e) => e.name == local,
+        orElse: () => BackupFrequency.onExit,
+      );
+    }
+
+    if (cloud != null) {
+      cloudFreq = BackupFrequency.values.firstWhere(
+        (e) => e.name == cloud,
+        orElse: () => BackupFrequency.weekly,
+      );
+    }
+  }
+
+  Future<void> _savePrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString(
+      'backup_local_path',
+      localPath ?? '',
+    );
+
+    await prefs.setString(
+      'backup_local_freq',
+      localFreq.name,
+    );
+
+    await prefs.setString(
+      'backup_cloud_freq',
+      cloudFreq.name,
+    );
   }
 
   bool _guardAuth() {
     if (_account == null) {
       _msg(
-        'سجل دخول بحساب جوجل أولًا',
+        'سجل دخول بجوجل أولًا',
       );
       return false;
     }
@@ -98,6 +161,8 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen>
   }
 
   void _msg(String text) {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(text),
@@ -139,9 +204,9 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen>
     return false;
   }
 
-  // =================
-  // LOCAL BACKUP
-  // =================
+  // ===================
+  // LOCAL
+  // ===================
 
   Future<void> _pickFolder() async {
     final ok = await _requestStoragePermission();
@@ -156,8 +221,10 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen>
       localPath = path;
     });
 
+    await _savePrefs();
+
     _msg(
-      'تم تحديد مجلد النسخ',
+      'تم حفظ مجلد النسخ',
     );
   }
 
@@ -183,6 +250,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen>
 
     await file.writeAsString(
       widget.cubit.exportStateJson(),
+      flush: true,
     );
 
     if (!silent) {
@@ -210,9 +278,9 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen>
     );
   }
 
-  // =================
-  // FIREBASE BACKUP
-  // =================
+  // ===================
+  // FIREBASE
+  // ===================
 
   Future<void> _backupFirestore() async {
     if (!_guardAuth()) return;
@@ -235,14 +303,16 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen>
       _msg(
         'تم رفع النسخة',
       );
-    } catch (e) {
+    } catch (_) {
       _msg(
         'فشل رفع النسخة',
       );
     } finally {
-      setState(() {
-        loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          loading = false;
+        });
+      }
     }
   }
 
@@ -256,40 +326,37 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen>
 
       final doc = await FirebaseFirestore.instance
           .collection('backups')
-          .doc(_account!.email)
+          .doc(
+            _account!.email,
+          )
           .get();
 
       if (!doc.exists || doc.data() == null) {
         _msg(
-          'لا توجد نسخة محفوظة',
+          'لا توجد نسخة',
         );
         return;
       }
 
       final json = doc.data()!['backup'];
 
-      if (json == null || json.toString().isEmpty) {
-        _msg(
-          'النسخة فارغة',
-        );
-        return;
-      }
-
       await widget.cubit.importStateJson(
         json.toString(),
       );
 
       _msg(
-        'تم استرجاع النسخة',
+        'تم الاسترجاع',
       );
-    } catch (e) {
+    } catch (_) {
       _msg(
         'فشل الاسترجاع',
       );
     } finally {
-      setState(() {
-        loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          loading = false;
+        });
+      }
     }
   }
 
@@ -315,10 +382,6 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen>
           ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // =================
-              // LOCAL
-              // =================
-
               _section(
                 title: 'النسخ المحلي',
                 subtitle: 'حفظ واسترجاع على الجهاز',
@@ -340,6 +403,8 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen>
                       setState(() {
                         localFreq = v;
                       });
+
+                      _savePrefs();
                     },
                   ),
                   const SizedBox(
@@ -357,18 +422,12 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen>
                   ),
                 ],
               ),
-
               const SizedBox(
                 height: 18,
               ),
-
-              // =================
-              // FIREBASE
-              // =================
-
               _section(
                 title: 'Firebase Backup',
-                subtitle: 'رفع واسترجاع من السحابة',
+                subtitle: 'نسخ سحابي واسترجاع',
                 children: [
                   _frequencyDropdown(
                     cloudFreq,
@@ -378,6 +437,8 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen>
                       setState(() {
                         cloudFreq = v;
                       });
+
+                      _savePrefs();
                     },
                   ),
                   const SizedBox(
@@ -393,18 +454,8 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen>
                     Icons.cloud_download,
                     _restoreFirestore,
                   ),
-                  _outlineButton(
-                    'تفعيل المزامنة',
-                    Icons.sync,
-                    () {
-                      _msg(
-                        'تم حفظ ${label(cloudFreq)}',
-                      );
-                    },
-                  ),
                 ],
               ),
-
               const SizedBox(
                 height: 30,
               ),

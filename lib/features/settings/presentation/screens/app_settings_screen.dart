@@ -44,18 +44,35 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
   }
 
   Future<void> _initGoogle() async {
-    final acc =
-        _googleSignIn.currentUser ?? await _googleSignIn.signInSilently();
+    final cached = _googleSignIn.currentUser;
 
-    if (!mounted) return; // مهم قبل لمس controller
+    if (cached != null) {
+      _account = cached;
 
-    if (acc != null && _nameController.text.trim().isEmpty) {
-      _nameController.text = acc.displayName ?? '';
+      if (_nameController.text.trim().isEmpty) {
+        _nameController.text = cached.displayName ?? '';
+      }
+
+      if (mounted) {
+        setState(() {});
+      }
+
+      return;
     }
 
-    setState(() {
+    final acc = await _googleSignIn.signInSilently();
+
+    if (!mounted) return;
+
+    if (acc != null) {
       _account = acc;
-    });
+
+      if (_nameController.text.trim().isEmpty) {
+        _nameController.text = acc.displayName ?? '';
+      }
+
+      setState(() {});
+    }
   }
 
   @override
@@ -76,19 +93,16 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
           const SizedBox(
             height: 10,
           ),
-
-          // PROFILE
           _sectionLabel(
             'الملف الشخصي',
           ),
-
           _card(
             child: Column(
               children: [
                 Stack(
                   children: [
                     CircleAvatar(
-                      radius: 46,
+                      radius: 50,
                       backgroundColor: primary.withOpacity(.12),
                       backgroundImage: _account?.photoUrl != null
                           ? NetworkImage(
@@ -113,8 +127,8 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                         ),
                         child: const Icon(
                           Icons.edit,
-                          size: 15,
                           color: Colors.white,
+                          size: 15,
                         ),
                       ),
                     ),
@@ -125,6 +139,11 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                 ),
                 TextField(
                   controller: _nameController,
+                  onChanged: (v) {
+                    widget.cubit.updateSettings(
+                      userName: v,
+                    );
+                  },
                   decoration: InputDecoration(
                     labelText: 'اسم المستخدم',
                     prefixIcon: const Icon(
@@ -141,18 +160,15 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                       borderSide: BorderSide.none,
                     ),
                   ),
-                  onChanged: (v) {
-                    widget.cubit.updateSettings(
-                      userName: v,
-                    );
-                  },
                 ),
                 const SizedBox(
                   height: 14,
                 ),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(
+                    14,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(
                       0xFFF4F6F4,
@@ -165,7 +181,6 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                     children: [
                       const Icon(
                         Icons.email_outlined,
-                        size: 20,
                       ),
                       const SizedBox(
                         width: 10,
@@ -174,56 +189,49 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                         child: Text(
                           _account?.email ?? '',
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 14,
-                          ),
                         ),
-                      ),
+                      )
                     ],
                   ),
                 ),
               ],
             ),
           ),
-
           const SizedBox(
             height: 22,
           ),
-
-          // GOOGLE
           _sectionLabel(
             'ربط الحساب',
           ),
-
           _card(
             child: Column(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(
+                    16,
+                  ),
                   decoration: BoxDecoration(
-                    color: const Color(
-                      0xFFF8FAF8,
-                    ),
+                    color: primary.withOpacity(.07),
                     borderRadius: BorderRadius.circular(
-                      18,
+                      20,
                     ),
                   ),
                   child: Row(
                     children: [
                       Container(
-                        width: 46,
-                        height: 46,
+                        width: 50,
+                        height: 50,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(
-                            14,
-                          ),
                           color: Colors.white,
+                          borderRadius: BorderRadius.circular(
+                            16,
+                          ),
                         ),
                         child: const Center(
                           child: Text(
                             'G',
                             style: TextStyle(
-                              fontSize: 26,
+                              fontSize: 28,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -239,15 +247,15 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                             const Text(
                               'حساب Google',
                               style: TextStyle(
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                             Text(
                               _account?.email ?? 'غير متصل',
-                            ),
+                            )
                           ],
                         ),
-                      ),
+                      )
                     ],
                   ),
                 ),
@@ -265,11 +273,6 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                       minimumSize: const Size.fromHeight(
                         54,
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(
-                          18,
-                        ),
-                      ),
                     ),
                     icon: Icon(
                       _account == null ? Icons.login : Icons.logout,
@@ -284,21 +287,14 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
               ],
             ),
           ),
-
           const SizedBox(
             height: 22,
           ),
-
-          // DATA
           _sectionLabel(
             'البيانات',
           ),
-
           _card(
             child: InkWell(
-              borderRadius: BorderRadius.circular(
-                18,
-              ),
               onTap: () {
                 Navigator.push(
                   context,
@@ -317,9 +313,7 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                       width: 52,
                       height: 52,
                       decoration: BoxDecoration(
-                        color: primary.withOpacity(
-                          .12,
-                        ),
+                        color: primary.withOpacity(.12),
                         borderRadius: BorderRadius.circular(
                           16,
                         ),
@@ -354,13 +348,65 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                     ),
                     const Icon(
                       Icons.chevron_left,
+                    )
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(
+            height: 14,
+          ),
+          _card(
+            child: InkWell(
+              onTap: _showWipeSheet,
+              child: Padding(
+                padding: const EdgeInsets.all(6),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(.10),
+                        borderRadius: BorderRadius.circular(
+                          16,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.delete_sweep,
+                        color: Colors.red,
+                      ),
+                    ),
+                    const SizedBox(
+                      width: 14,
+                    ),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'مسح بيانات التطبيق',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'إعادة ضبط كاملة',
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_left,
                     ),
                   ],
                 ),
               ),
             ),
           ),
-
           const SizedBox(
             height: 30,
           ),
@@ -401,8 +447,8 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
       child: Text(
         text,
         style: const TextStyle(
-          fontWeight: FontWeight.w900,
           fontSize: 18,
+          fontWeight: FontWeight.w900,
         ),
       ),
     );
@@ -427,26 +473,165 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
         _account = account;
       });
     } catch (e) {
-      log(
-        'Google sign in error $e',
-      );
+      log('$e');
     }
   }
 
   Future<void> _signOutGoogle() async {
-    try {
-      await _googleSignIn.signOut();
+    await _googleSignIn.signOut();
 
-      widget.cubit.updateSettings(
-        googleEmail: '',
-      );
+    widget.cubit.updateSettings(
+      googleEmail: '',
+    );
 
-      setState(() {
-        _account = null;
-      });
-    } catch (e) {
-      log(
-        'Google sign out error $e',
+    setState(() {
+      _account = null;
+    });
+  }
+
+  Future<void> _showWipeSheet() async {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) {
+        int count = 5;
+
+        return StatefulBuilder(
+          builder: (ctx, setState) {
+            Future.doWhile(() async {
+              if (count == 0) return false;
+
+              await Future.delayed(
+                const Duration(
+                  seconds: 1,
+                ),
+              );
+
+              count--;
+
+              if (ctx.mounted) {
+                setState(() {});
+              }
+
+              return count > 0;
+            });
+
+            return Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(32),
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.warning_amber,
+                    size: 60,
+                    color: Colors.red,
+                  ),
+                  const SizedBox(
+                    height: 18,
+                  ),
+                  const Text(
+                    'تحذير شديد',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(
+                    height: 12,
+                  ),
+                  const Text(
+                    'سيتم حذف كل البيانات.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(
+                    height: 20,
+                  ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: count > 0 ? null : _finalDeleteConfirm,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                      ),
+                      child: Text(
+                        count > 0 ? 'انتظر $count' : 'متابعة الحذف',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _finalDeleteConfirm() async {
+    Navigator.pop(context);
+
+    await Future.delayed(
+      const Duration(
+        seconds: 2,
+      ),
+    );
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text(
+          'تأكيد أخير',
+        ),
+        content: const Text(
+          'حذف جميع البيانات؟',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(
+                context,
+                false,
+              );
+            },
+            child: const Text(
+              'إلغاء',
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(
+                context,
+                true,
+              );
+            },
+            child: const Text(
+              'حذف',
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true) {
+      await widget.cubit.resetAllData();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'تم حذف جميع البيانات',
+          ),
+        ),
       );
     }
   }

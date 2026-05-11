@@ -1,69 +1,81 @@
 class GoalEntity {
+  final String id;
+  final String name;
+  final double targetAmount;
+  final double currentAmount;
+  final DateTime startDate;
+  final DateTime endDate;
+  final String? linkedJarId;
+  final bool isCompleted;
+  final DateTime createdAt;
+  final DateTime? modifiedAt;
+
   const GoalEntity({
     required this.id,
     required this.name,
     required this.targetAmount,
+    this.currentAmount = 0,
     required this.startDate,
     required this.endDate,
-    this.icon = 'savings',
-    this.iconColor = '#2f6f5e',
-    this.notes,
+    this.linkedJarId,
+    this.isCompleted = false,
+    required this.createdAt,
+    this.modifiedAt,
   });
-
-  final String id;
-  final String name;
-  final double targetAmount;
-  final DateTime startDate;
-  final DateTime endDate;
-  final String icon;
-  final String iconColor;
-  final String? notes;
 
   GoalEntity copyWith({
     String? id,
     String? name,
     double? targetAmount,
+    double? currentAmount,
     DateTime? startDate,
     DateTime? endDate,
-    String? icon,
-    String? iconColor,
-    String? notes,
+    String? linkedJarId,
+    bool? isCompleted,
+    DateTime? createdAt,
+    DateTime? modifiedAt,
   }) {
     return GoalEntity(
       id: id ?? this.id,
       name: name ?? this.name,
       targetAmount: targetAmount ?? this.targetAmount,
+      currentAmount: currentAmount ?? this.currentAmount,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
-      icon: icon ?? this.icon,
-      iconColor: iconColor ?? this.iconColor,
-      notes: notes ?? this.notes,
+      linkedJarId: linkedJarId ?? this.linkedJarId,
+      isCompleted: isCompleted ?? this.isCompleted,
+      createdAt: createdAt ?? this.createdAt,
+      modifiedAt: modifiedAt ?? this.modifiedAt,
     );
   }
 
   Map<String, dynamic> toMap() {
-    return <String, dynamic>{
+    return {
       'id': id,
       'name': name,
       'targetAmount': targetAmount,
+      'currentAmount': currentAmount,
       'startDate': startDate.toIso8601String(),
       'endDate': endDate.toIso8601String(),
-      'icon': icon,
-      'iconColor': iconColor,
-      'notes': notes,
+      'linkedJarId': linkedJarId,
+      'isCompleted': isCompleted,
+      'createdAt': createdAt.toIso8601String(),
+      'modifiedAt': modifiedAt?.toIso8601String(),
     };
   }
 
   factory GoalEntity.fromMap(Map<String, dynamic> map) {
     return GoalEntity(
-      id: map['id'] as String? ?? '',
-      name: map['name'] as String? ?? '',
+      id: map['id'] as String,
+      name: map['name'] as String,
       targetAmount: (map['targetAmount'] as num?)?.toDouble() ?? 0,
+      currentAmount: (map['currentAmount'] as num?)?.toDouble() ?? 0,
       startDate: DateTime.tryParse(map['startDate'] as String? ?? '') ?? DateTime.now(),
       endDate: DateTime.tryParse(map['endDate'] as String? ?? '') ?? DateTime.now(),
-      icon: map['icon'] as String? ?? 'savings',
-      iconColor: map['iconColor'] as String? ?? '#2f6f5e',
-      notes: map['notes'] as String?,
+      linkedJarId: map['linkedJarId'] as String?,
+      isCompleted: map['isCompleted'] as bool? ?? false,
+      createdAt: DateTime.tryParse(map['createdAt'] as String? ?? '') ?? DateTime.now(),
+      modifiedAt: DateTime.tryParse(map['modifiedAt'] as String? ?? ''),
     );
   }
 }

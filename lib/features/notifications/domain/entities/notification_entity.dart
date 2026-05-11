@@ -1,65 +1,69 @@
 class NotificationEntity {
+  final String id;
+  final String title;
+  final String message;
+  final DateTime createdAt;
+  final bool isRead;
+  final String type;
+  final String? relatedLogId;
+  final DateTime? modifiedAt;
+
   const NotificationEntity({
     required this.id,
     required this.title,
     required this.message,
     required this.createdAt,
+    this.isRead = false,
     required this.type,
     this.relatedLogId,
-    this.readAt,
+    this.modifiedAt,
   });
-
-  final String id;
-  final String title;
-  final String message;
-  final DateTime createdAt;
-  final String type;
-  final String? relatedLogId;
-  final DateTime? readAt;
-
-  bool get isRead => readAt != null;
 
   NotificationEntity copyWith({
     String? id,
     String? title,
     String? message,
     DateTime? createdAt,
+    bool? isRead,
     String? type,
     String? relatedLogId,
-    DateTime? readAt,
+    DateTime? modifiedAt,
   }) {
     return NotificationEntity(
       id: id ?? this.id,
       title: title ?? this.title,
       message: message ?? this.message,
       createdAt: createdAt ?? this.createdAt,
+      isRead: isRead ?? this.isRead,
       type: type ?? this.type,
       relatedLogId: relatedLogId ?? this.relatedLogId,
-      readAt: readAt ?? this.readAt,
+      modifiedAt: modifiedAt ?? this.modifiedAt,
     );
   }
 
   Map<String, dynamic> toMap() {
-    return <String, dynamic>{
+    return {
       'id': id,
       'title': title,
       'message': message,
       'createdAt': createdAt.toIso8601String(),
+      'isRead': isRead,
       'type': type,
       'relatedLogId': relatedLogId,
-      'readAt': readAt?.toIso8601String(),
+      'modifiedAt': modifiedAt?.toIso8601String(),
     };
   }
 
   factory NotificationEntity.fromMap(Map<String, dynamic> map) {
     return NotificationEntity(
-      id: map['id'] as String? ?? '',
-      title: map['title'] as String? ?? '',
-      message: map['message'] as String? ?? '',
+      id: map['id'] as String,
+      title: map['title'] as String,
+      message: map['message'] as String,
       createdAt: DateTime.tryParse(map['createdAt'] as String? ?? '') ?? DateTime.now(),
-      type: map['type'] as String? ?? 'general',
+      isRead: map['isRead'] as bool? ?? false,
+      type: map['type'] as String,
       relatedLogId: map['relatedLogId'] as String?,
-      readAt: map['readAt'] != null ? DateTime.tryParse(map['readAt'] as String) : null,
+      modifiedAt: DateTime.tryParse(map['modifiedAt'] as String? ?? ''),
     );
   }
 }
